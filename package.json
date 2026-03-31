@@ -1,0 +1,52 @@
+{
+  "name": "acacia",
+  "version": "0.0.0",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/acacia.umd.cjs",
+  "module": "./dist/acacia.js",
+  "exports": {
+    ".": {
+      "import": "./dist/acacia.js",
+      "require": "./dist/acacia.umd.cjs"
+    }
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.22.0",
+    "@tailwindcss/vite": "^4.1.16",
+    "@types/lodash": "^4.17.20",
+    "@types/node": "^22.14.1",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.21",
+    "daisyui": "^5.4.3",
+    "eslint": "^9.22.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^16.0.0",
+    "lodash": "^4.17.21",
+    "postcss": "^8.5.6",
+    "react-resize-detector": "^12.1.0",
+    "sass-embedded": "^1.93.2",
+    "tailwindcss": "^4.1.16",
+    "typescript": "~5.7.2",
+    "typescript-eslint": "^8.26.1",
+    "vite": "^6.3.1",
+    "vite-plugin-top-level-await": "^1.5.0",
+    "vite-plugin-wasm": "^3.4.1",
+    "zustand": "^5.0.5"
+  }
+}
