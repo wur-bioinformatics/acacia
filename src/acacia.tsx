@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import MSA from "./MSA";
-import React from "react";
+import React, { JSX } from "react";
 
 const viewOptions = ["MSA", "Tree", "Tree + MSA"] as const;
 
@@ -16,7 +16,7 @@ const useViewStore = create<ViewState>((set) => ({
   setView: (view: View) => set({ view }),
 }));
 
-function ViewDispatcher({ view }: { view: View }) {
+function ViewDispatcher({ view }: { view: View }): JSX.Element | null {
   switch (view) {
     case "MSA":
       return <MSA />;
@@ -29,7 +29,7 @@ function ViewDispatcher({ view }: { view: View }) {
   }
 }
 
-export default function Acacia() {
+export default function Acacia(): JSX.Element {
   const { view, setView } = useViewStore();
   return (
     <div className="mx-8 my-8">

@@ -12,6 +12,8 @@ import { useMSAStore } from "./stores/msaStore";
 import usePanZoom from "./hooks/usePanZoom";
 import useCanvasRefs from "./hooks/useCanvasRefs";
 import useMainCanvasWorker from "./hooks/useMainCanvasWorker";
+import { NJOptions, useNJWorker } from "../NJ";
+import { NJConfig } from "@holmrenser/nj";
 
 /**
  * Reads the contents of a File object as text.
@@ -81,7 +83,7 @@ function parseFasta(input: string): MSAData {
       }
       const header = line.substring(1).trim();
       currentRecord = {
-        header,
+        identifier: header,
         sequence: "",
       };
     } else if (currentRecord && line.trim()) {
@@ -133,13 +135,13 @@ function MSACanvas({
         col * cellSize * scale + offsetX,
         0,
         cellSize * scale,
-        mainHeight
+        mainHeight,
       );
       ctx.strokeRect(
         col * cellSize * scale + offsetX,
         0,
         cellSize * scale,
-        mainHeight
+        mainHeight,
       );
     };
 
@@ -250,8 +252,30 @@ function MSAInput() {
   );
 }
 
+function makeTree(
+  msaData: MSAData,
+  runNJ: (options: NJOptions) => Promise<string>,
+) {
+  // Placeholder for NJ tree construction logic
+  console.log("Running NJ algorithm on MSA data:", msaData);
+  const njConfig: NJConfig = {
+    msa: msaData,
+    n_bootstrap_samples: 100,
+    substitution_model: "PDiff",
+  };
+
+  const onProgress = (current: number, total: number) => {
+    console.log(`Progress: ${current} / ${total}`);
+  };
+
+  runNJ({ njConfig, onProgress }).then((tree: string) => {
+    console.log("NJ tree result:", tree);
+  });
+}
+
 export default function MSA(): JSX.Element {
   const { msaData } = useMSAStore();
+  const { runNJ } = useNJWorker();
   const nRows = msaData.length;
   const nCols = msaData[0]?.sequence.length ?? 0;
   const {
@@ -297,6 +321,14 @@ export default function MSA(): JSX.Element {
               <li>Num. characters: {nCols}</li>
             </ul>
           </section>
+          {nRows && (
+            <button
+              className="btn btn-success"
+              onClick={() => makeTree(msaData, runNJ)}
+            >
+              Run NJ and display tree (to be implemented)
+            </button>
+          )}
         </>
       )}
     </>

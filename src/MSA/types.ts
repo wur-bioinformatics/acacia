@@ -17,7 +17,7 @@ export type DrawOptions = {
 };
 
 export type SeqObject = {
-  header: string;
+  identifier: string;
   sequence: string;
 };
 

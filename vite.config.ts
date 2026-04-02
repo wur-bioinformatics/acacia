@@ -10,6 +10,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // https://vite.dev/config/
 export default defineConfig({
+  worker: {
+    plugins: () => [wasm(), topLevelAwait()],
+  },
   build: {
     lib: {
       entry: resolve(__dirname, "src/main.ts"),
