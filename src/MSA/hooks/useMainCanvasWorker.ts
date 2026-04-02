@@ -89,7 +89,7 @@ export default function useMainCanvasWorker({
   useEffect(() => {
     // Effect to send draw options to worker
     if (!workerRef.current) return;
-    console.log({ drawOptions });
+    // console.log({ drawOptions });
     workerRef.current.onmessage = (ev: MessageEvent) => {
       console.log(ev.data);
     };

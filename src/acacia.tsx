@@ -1,27 +1,15 @@
-import { create } from "zustand";
 import MSA from "./MSA";
+import Tree from "./tree";
 import React, { JSX } from "react";
-
-const viewOptions = ["MSA", "Tree", "Tree + MSA"] as const;
-
-type View = (typeof viewOptions)[number];
-
-interface ViewState {
-  view: View;
-  setView: (view: View) => void;
-}
-
-const useViewStore = create<ViewState>((set) => ({
-  view: "MSA",
-  setView: (view: View) => set({ view }),
-}));
+import { viewOptions, useViewStore, type View } from "./viewStore";
+import { useNJStore } from "./NJ/njStore";
 
 function ViewDispatcher({ view }: { view: View }): JSX.Element | null {
   switch (view) {
     case "MSA":
       return <MSA />;
     case "Tree":
-      return <div>Tree View (to be implemented)</div>;
+      return <Tree />;
     case "Tree + MSA":
       return <div>Tree + MSA View (to be implemented)</div>;
     default:
@@ -31,6 +19,9 @@ function ViewDispatcher({ view }: { view: View }): JSX.Element | null {
 
 export default function Acacia(): JSX.Element {
   const { view, setView } = useViewStore();
+  const { status: njStatus } = useNJStore();
+  const treeReady = njStatus === "done";
+
   return (
     <div className="mx-8 my-8">
       <div className="tabs tabs-lift">
@@ -43,6 +34,7 @@ export default function Acacia(): JSX.Element {
               aria-label={viewOption}
               checked={view === viewOption}
               onChange={() => setView(viewOption)}
+              disabled={viewOption !== "MSA" && !treeReady}
             />
             <div className="tab-content bg-base-100 border-base-300 p-6">
               <ViewDispatcher view={viewOption} />

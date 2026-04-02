@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { JSX } from "react";
 import { exampleMsa } from "./example_data";
 
@@ -12,8 +12,9 @@ import { useMSAStore } from "./stores/msaStore";
 import usePanZoom from "./hooks/usePanZoom";
 import useCanvasRefs from "./hooks/useCanvasRefs";
 import useMainCanvasWorker from "./hooks/useMainCanvasWorker";
-import { NJOptions, useNJWorker } from "../NJ";
-import { NJConfig } from "@holmrenser/nj";
+import { useNJWorker, useNJStore } from "../NJ";
+import { useViewStore } from "../viewStore";
+import type { NJConfig } from "@holmrenser/nj";
 
 /**
  * Reads the contents of a File object as text.
@@ -102,13 +103,16 @@ function MSACanvas({
   isMinimap?: boolean;
 }): JSX.Element {
   const { msaData } = useMSAStore();
-  const { drawOptions } = useDrawStore();
+  const { drawOptions, setDrawOptions } = useDrawStore();
   const { canvasRef, overlayRef } = useCanvasRefs({ isMinimap });
   useMainCanvasWorker({ canvasRef, msaData, drawOptions, isMinimap });
   const { offsetX, offsetY, scale } = drawOptions;
 
   const cellSize = 16;
   const nCols = msaData[0].sequence.length;
+
+  const drawOptionsRef = useRef(drawOptions);
+  drawOptionsRef.current = drawOptions;
 
   const mainWidth = 800;
   const mainHeight = isMinimap ? 50 : msaData.length * 16;
@@ -182,6 +186,99 @@ function MSACanvas({
     ctx.strokeRect(boxX, boxY, boxW, boxH);
     ctx.restore();
   });
+
+  useEffect(() => {
+    if (!isMinimap) return;
+    const overlayCanvas = overlayRef.current;
+    if (!overlayCanvas) return;
+
+    const W = overlayCanvas.width;
+    const scaleX = W / (nCols * cellSize);
+    const EDGE = 8;
+
+    const getBox = () => {
+      const { offsetX, scale } = drawOptionsRef.current;
+      const boxLeft = (-offsetX / scale) * scaleX;
+      const boxW = (W / scale) * scaleX;
+      return { boxLeft, boxW, boxRight: boxLeft + boxW };
+    };
+
+    const clampScale = (s: number) => Math.max(scaleX, Math.min(1, s));
+    const clampOffsetX = (ox: number, s: number) => {
+      const minOX = Math.min(0, W - nCols * cellSize * s);
+      return Math.min(0, Math.max(minOX, ox));
+    };
+
+    type DragState = {
+      mode: "pan" | "resize-left" | "resize-right";
+      startClientX: number;
+      startOffsetX: number;
+      startScale: number;
+      startBoxLeft: number;
+      startBoxW: number;
+    };
+    let drag: DragState | null = null;
+
+    const onMouseDown = (e: MouseEvent) => {
+      const mx = e.offsetX;
+      const { boxLeft, boxW, boxRight } = getBox();
+      if (mx < boxLeft - EDGE || mx > boxRight + EDGE) return;
+      const { offsetX, scale } = drawOptionsRef.current;
+      let mode: DragState["mode"];
+      if (Math.abs(mx - boxLeft) <= EDGE) mode = "resize-left";
+      else if (Math.abs(mx - boxRight) <= EDGE) mode = "resize-right";
+      else mode = "pan";
+      drag = { mode, startClientX: e.clientX, startOffsetX: offsetX, startScale: scale, startBoxLeft: boxLeft, startBoxW: boxW };
+    };
+
+    const onCanvasMouseMove = (e: MouseEvent) => {
+      if (drag) return;
+      const mx = e.offsetX;
+      const { boxLeft, boxRight } = getBox();
+      if (Math.abs(mx - boxLeft) <= EDGE || Math.abs(mx - boxRight) <= EDGE) {
+        overlayCanvas.style.cursor = "ew-resize";
+      } else if (mx >= boxLeft && mx <= boxRight) {
+        overlayCanvas.style.cursor = "grab";
+      } else {
+        overlayCanvas.style.cursor = "default";
+      }
+    };
+
+    const onWindowMouseMove = (e: MouseEvent) => {
+      if (!drag) return;
+      const delta = e.clientX - drag.startClientX;
+      if (drag.mode === "pan") {
+        const newOffsetX = clampOffsetX(drag.startOffsetX - delta * drag.startScale / scaleX, drag.startScale);
+        setDrawOptions((prev) => ({ ...prev, offsetX: newOffsetX }));
+      } else if (drag.mode === "resize-right") {
+        const newBoxW = Math.max(1, drag.startBoxW + delta);
+        const newScale = clampScale(W * scaleX / newBoxW);
+        const viewStart = -drag.startOffsetX / drag.startScale;
+        const newOffsetX = clampOffsetX(-viewStart * newScale, newScale);
+        setDrawOptions((prev) => ({ ...prev, scale: newScale, offsetX: newOffsetX }));
+      } else {
+        const newBoxW = Math.max(1, drag.startBoxW - delta);
+        const newScale = clampScale(W * scaleX / newBoxW);
+        const viewEnd = (W - drag.startOffsetX) / drag.startScale;
+        const newOffsetX = clampOffsetX(W - viewEnd * newScale, newScale);
+        setDrawOptions((prev) => ({ ...prev, scale: newScale, offsetX: newOffsetX }));
+      }
+    };
+
+    const onMouseUp = () => { drag = null; };
+
+    overlayCanvas.addEventListener("mousedown", onMouseDown);
+    overlayCanvas.addEventListener("mousemove", onCanvasMouseMove);
+    window.addEventListener("mousemove", onWindowMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      overlayCanvas.removeEventListener("mousedown", onMouseDown);
+      overlayCanvas.removeEventListener("mousemove", onCanvasMouseMove);
+      window.removeEventListener("mousemove", onWindowMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [isMinimap, overlayRef, nCols, cellSize, setDrawOptions]);
+
   return (
     <div
       className="msa"
@@ -209,7 +306,7 @@ function MSACanvas({
           top: 0,
           left: 0,
           zIndex: 2,
-          pointerEvents: isMinimap ? "none" : "auto",
+          pointerEvents: "auto",
         }}
       />
     </div>
@@ -252,45 +349,57 @@ function MSAInput() {
   );
 }
 
-function makeTree(
-  msaData: MSAData,
-  runNJ: (options: NJOptions) => Promise<string>,
-) {
-  // Placeholder for NJ tree construction logic
-  console.log("Running NJ algorithm on MSA data:", msaData);
-  const njConfig: NJConfig = {
-    msa: msaData,
-    n_bootstrap_samples: 100,
-    substitution_model: "PDiff",
-  };
-
-  const onProgress = (current: number, total: number) => {
-    console.log(`Progress: ${current} / ${total}`);
-  };
-
-  runNJ({ njConfig, onProgress }).then((tree: string) => {
-    console.log("NJ tree result:", tree);
-  });
-}
 
 export default function MSA(): JSX.Element {
   const { msaData } = useMSAStore();
   const { runNJ } = useNJWorker();
+  const { status: njStatus, progress, setRunning, setResult, setError, setProgress } =
+    useNJStore();
+  const { setView } = useViewStore();
   const nRows = msaData.length;
   const nCols = msaData[0]?.sequence.length ?? 0;
   const {
-    drawOptions: { showLetters, colorStyle: currentColorStyle },
+    drawOptions: { showLetters, colorStyle: currentColorStyle, offsetY },
     setDrawOptions,
   } = useDrawStore();
   usePanZoom({ nRows, nCols });
+
+  function handleRunNJ() {
+    setRunning();
+    const njConfig: NJConfig = {
+      msa: msaData,
+      n_bootstrap_samples: 100,
+      substitution_model: "PDiff",
+    };
+    runNJ({ njConfig, onProgress: (current, total) => setProgress(current, total) })
+      .then((newick) => {
+        setResult(newick);
+        setView("Tree");
+      })
+      .catch((err: Error) => setError(err.message));
+  }
 
   return (
     <>
       {!nRows && <MSAInput />}
       {!!nRows && (
         <>
-          <MSACanvas isMinimap />
-          <MSACanvas />
+          <div style={{ display: "flex" }}>
+            <div style={{ width: 150, flexShrink: 0 }} />
+            <MSACanvas isMinimap />
+          </div>
+          <div style={{ display: "flex" }}>
+            <div style={{ width: 150, height: nRows * 16, overflow: "hidden", flexShrink: 0 }}>
+              <div style={{ transform: `translateY(${offsetY}px)` }}>
+                {msaData.map((seq, i) => (
+                  <div key={i} style={{ height: 16, lineHeight: "16px", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 6, textAlign: "right" }}>
+                    {seq.identifier}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <MSACanvas />
+          </div>
           <button
             className="btn"
             onClick={() =>
@@ -321,14 +430,23 @@ export default function MSA(): JSX.Element {
               <li>Num. characters: {nCols}</li>
             </ul>
           </section>
-          {nRows && (
+          <div className="flex items-center gap-3 mt-2">
             <button
               className="btn btn-success"
-              onClick={() => makeTree(msaData, runNJ)}
+              onClick={handleRunNJ}
+              disabled={njStatus === "running"}
             >
-              Run NJ and display tree (to be implemented)
+              {njStatus === "running" ? "Building tree…" : "Build NJ tree"}
             </button>
-          )}
+            {njStatus === "running" && progress && (
+              <span className="text-sm opacity-70">
+                Bootstrap: {progress.current} / {progress.total}
+              </span>
+            )}
+            {njStatus === "error" && (
+              <span className="text-sm text-error">Tree build failed</span>
+            )}
+          </div>
         </>
       )}
     </>
