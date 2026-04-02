@@ -14,6 +14,7 @@ import useCanvasRefs from "./hooks/useCanvasRefs";
 import useMainCanvasWorker from "./hooks/useMainCanvasWorker";
 import { useNJWorker, useNJStore } from "../NJ";
 import { useViewStore } from "../viewStore";
+import { useContainerWidth } from "../hooks/useContainerWidth";
 import type { NJConfig } from "@holmrenser/nj";
 
 /**
@@ -99,23 +100,31 @@ function parseFasta(input: string): MSAData {
 
 function MSACanvas({
   isMinimap = false,
+  width,
 }: {
   isMinimap?: boolean;
+  width: number;
 }): JSX.Element {
   const { msaData } = useMSAStore();
   const { drawOptions, setDrawOptions } = useDrawStore();
   const { canvasRef, overlayRef } = useCanvasRefs({ isMinimap });
-  useMainCanvasWorker({ canvasRef, msaData, drawOptions, isMinimap });
   const { offsetX, offsetY, scale } = drawOptions;
 
   const cellSize = 16;
   const nCols = msaData[0].sequence.length;
+  const mainHeight = isMinimap ? 50 : msaData.length * 16;
+
+  useMainCanvasWorker({
+    canvasRef,
+    msaData,
+    drawOptions,
+    isMinimap,
+    canvasWidth: width,
+    canvasHeight: mainHeight,
+  });
 
   const drawOptionsRef = useRef(drawOptions);
   drawOptionsRef.current = drawOptions;
-
-  const mainWidth = 800;
-  const mainHeight = isMinimap ? 50 : msaData.length * 16;
 
   useEffect(() => {
     // Effect to handle overlay mousemove for highlighting
@@ -133,8 +142,8 @@ function MSACanvas({
       ctx.strokeStyle = "rgba(48,92,222,0.6)";
       ctx.lineWidth = 1;
       ctx.fillStyle = "rgba(48,92,222,0.3)";
-      ctx.strokeRect(0, row * cellSize + offsetY, mainWidth, cellSize);
-      ctx.fillRect(0, row * cellSize + offsetY, mainWidth, cellSize);
+      ctx.strokeRect(0, row * cellSize + offsetY, width, cellSize);
+      ctx.fillRect(0, row * cellSize + offsetY, width, cellSize);
       ctx.fillRect(
         col * cellSize * scale + offsetX,
         0,
@@ -154,7 +163,7 @@ function MSACanvas({
     return () => {
       overlayCanvas.removeEventListener("mousemove", handleMouseMove);
     };
-  }, [scale, offsetX, offsetY, isMinimap, overlayRef, mainHeight]);
+  }, [scale, offsetX, offsetY, isMinimap, overlayRef, mainHeight, width]);
 
   useEffect(() => {
     // Effect to draw viewport box on minimap
@@ -192,7 +201,7 @@ function MSACanvas({
     const overlayCanvas = overlayRef.current;
     if (!overlayCanvas) return;
 
-    const W = overlayCanvas.width;
+    const W = width;
     const scaleX = W / (nCols * cellSize);
     const EDGE = 8;
 
@@ -228,7 +237,14 @@ function MSACanvas({
       if (Math.abs(mx - boxLeft) <= EDGE) mode = "resize-left";
       else if (Math.abs(mx - boxRight) <= EDGE) mode = "resize-right";
       else mode = "pan";
-      drag = { mode, startClientX: e.clientX, startOffsetX: offsetX, startScale: scale, startBoxLeft: boxLeft, startBoxW: boxW };
+      drag = {
+        mode,
+        startClientX: e.clientX,
+        startOffsetX: offsetX,
+        startScale: scale,
+        startBoxLeft: boxLeft,
+        startBoxW: boxW,
+      };
     };
 
     const onCanvasMouseMove = (e: MouseEvent) => {
@@ -248,24 +264,37 @@ function MSACanvas({
       if (!drag) return;
       const delta = e.clientX - drag.startClientX;
       if (drag.mode === "pan") {
-        const newOffsetX = clampOffsetX(drag.startOffsetX - delta * drag.startScale / scaleX, drag.startScale);
+        const newOffsetX = clampOffsetX(
+          drag.startOffsetX - (delta * drag.startScale) / scaleX,
+          drag.startScale,
+        );
         setDrawOptions((prev) => ({ ...prev, offsetX: newOffsetX }));
       } else if (drag.mode === "resize-right") {
         const newBoxW = Math.max(1, drag.startBoxW + delta);
-        const newScale = clampScale(W * scaleX / newBoxW);
+        const newScale = clampScale((W * scaleX) / newBoxW);
         const viewStart = -drag.startOffsetX / drag.startScale;
         const newOffsetX = clampOffsetX(-viewStart * newScale, newScale);
-        setDrawOptions((prev) => ({ ...prev, scale: newScale, offsetX: newOffsetX }));
+        setDrawOptions((prev) => ({
+          ...prev,
+          scale: newScale,
+          offsetX: newOffsetX,
+        }));
       } else {
         const newBoxW = Math.max(1, drag.startBoxW - delta);
-        const newScale = clampScale(W * scaleX / newBoxW);
+        const newScale = clampScale((W * scaleX) / newBoxW);
         const viewEnd = (W - drag.startOffsetX) / drag.startScale;
         const newOffsetX = clampOffsetX(W - viewEnd * newScale, newScale);
-        setDrawOptions((prev) => ({ ...prev, scale: newScale, offsetX: newOffsetX }));
+        setDrawOptions((prev) => ({
+          ...prev,
+          scale: newScale,
+          offsetX: newOffsetX,
+        }));
       }
     };
 
-    const onMouseUp = () => { drag = null; };
+    const onMouseUp = () => {
+      drag = null;
+    };
 
     overlayCanvas.addEventListener("mousedown", onMouseDown);
     overlayCanvas.addEventListener("mousemove", onCanvasMouseMove);
@@ -277,14 +306,14 @@ function MSACanvas({
       window.removeEventListener("mousemove", onWindowMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [isMinimap, overlayRef, nCols, cellSize, setDrawOptions]);
+  }, [isMinimap, overlayRef, nCols, cellSize, setDrawOptions, width]);
 
   return (
     <div
       className="msa"
       style={{
         position: "relative",
-        width: mainWidth,
+        width: width,
         height: mainHeight,
         paddingBottom: isMinimap ? 10 : 0,
       }}
@@ -292,14 +321,14 @@ function MSACanvas({
       <canvas
         className="main-msa-canvas"
         ref={canvasRef}
-        width={mainWidth}
+        width={width}
         height={mainHeight}
         style={{ position: "absolute", top: 0, left: 0, zIndex: 1 }}
       />
       <canvas
         className="overlay-canvas"
         ref={overlayRef}
-        width={mainWidth}
+        width={width}
         height={mainHeight}
         style={{
           position: "absolute",
@@ -318,43 +347,63 @@ function MSAInput() {
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-
     try {
       const text = await readTextFile(file);
-      const msa = parseFasta(text);
-      console.log({ msa });
-      setMSAData(msa);
+      setMSAData(parseFasta(text));
     } catch (error) {
       console.error("Failed to read file:", error);
     }
   }
   return (
-    <>
-      <input
-        className="file-input file-input-xs"
-        id="file"
-        type="file"
-        onChange={handleFileChange}
-      />
+    <div className="flex flex-col items-center gap-3 py-16">
+      <label className="flex flex-col items-center gap-2 px-12 py-10 border-2 border-dashed border-base-300 rounded-2xl cursor-pointer hover:border-primary transition-colors group">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="opacity-25 group-hover:opacity-50 transition-opacity"
+        >
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+        <span className="text-sm font-medium">Upload FASTA file</span>
+        <span className="text-xs opacity-40">click to browse</span>
+        <input
+          type="file"
+          className="hidden"
+          accept=".fasta,.fa,.fna,.faa,.txt"
+          onChange={handleFileChange}
+        />
+      </label>
+      <span className="text-xs opacity-25">or</span>
       <button
-        className="btn btn-xs btn-soft btn-outline btn-info"
-        onClick={() => {
-          console.log({ exampleMsa });
-          setMSAData(exampleMsa);
-        }}
+        className="btn btn-ghost btn-sm opacity-50 hover:opacity-100"
+        onClick={() => setMSAData(exampleMsa)}
       >
-        Load example data
+        load example data
       </button>
-    </>
+    </div>
   );
 }
-
 
 export default function MSA(): JSX.Element {
   const { msaData } = useMSAStore();
   const { runNJ } = useNJWorker();
-  const { status: njStatus, progress, setRunning, setResult, setError, setProgress } =
-    useNJStore();
+  const {
+    status: njStatus,
+    progress,
+    setRunning,
+    setResult,
+    setError,
+    setProgress,
+  } = useNJStore();
   const { setView } = useViewStore();
   const nRows = msaData.length;
   const nCols = msaData[0]?.sequence.length ?? 0;
@@ -364,6 +413,10 @@ export default function MSA(): JSX.Element {
   } = useDrawStore();
   usePanZoom({ nRows, nCols });
 
+  const LABEL_WIDTH = 150;
+  const [containerRef, containerWidth] = useContainerWidth(LABEL_WIDTH + 300);
+  const canvasWidth = Math.max(300, containerWidth - LABEL_WIDTH);
+
   function handleRunNJ() {
     setRunning();
     const njConfig: NJConfig = {
@@ -371,7 +424,10 @@ export default function MSA(): JSX.Element {
       n_bootstrap_samples: 100,
       substitution_model: "PDiff",
     };
-    runNJ({ njConfig, onProgress: (current, total) => setProgress(current, total) })
+    runNJ({
+      njConfig,
+      onProgress: (current, total) => setProgress(current, total),
+    })
       .then((newick) => {
         setResult(newick);
         setView("Tree");
@@ -383,71 +439,137 @@ export default function MSA(): JSX.Element {
     <>
       {!nRows && <MSAInput />}
       {!!nRows && (
-        <>
-          <div style={{ display: "flex" }}>
-            <div style={{ width: 150, flexShrink: 0 }} />
-            <MSACanvas isMinimap />
+        <div className="flex flex-col" ref={containerRef}>
+          {/* Menu bar */}
+          <div className="flex items-stretch border-b border-base-200 mb-2">
+            <div className="dropdown">
+              <button
+                tabIndex={0}
+                className="btn btn-ghost btn-xs rounded-none h-7 px-3 font-normal"
+              >
+                Analysis
+              </button>
+              <ul
+                tabIndex={0}
+                className="dropdown-content menu bg-base-100 shadow-md border border-base-200 rounded-lg z-10 w-52 p-1 text-xs"
+              >
+                <li>
+                  <button
+                    onClick={handleRunNJ}
+                    disabled={njStatus === "running"}
+                    className="flex justify-between items-center"
+                  >
+                    Build NJ tree
+                    {njStatus === "running" && (
+                      <span className="loading loading-spinner loading-xs opacity-50" />
+                    )}
+                  </button>
+                </li>
+              </ul>
+            </div>
+            <div className="dropdown">
+              <button
+                tabIndex={0}
+                className="btn btn-ghost btn-xs rounded-none h-7 px-3 font-normal"
+              >
+                View
+              </button>
+              <ul
+                tabIndex={0}
+                className="dropdown-content menu bg-base-100 shadow-md border border-base-200 rounded-lg z-10 w-52 p-1 text-xs"
+              >
+                <li>
+                  <label className="flex items-center justify-between cursor-pointer">
+                    Show letters
+                    <input
+                      type="checkbox"
+                      className="toggle toggle-xs"
+                      checked={showLetters}
+                      onChange={() =>
+                        setDrawOptions({ showLetters: !showLetters })
+                      }
+                    />
+                  </label>
+                </li>
+                <li className="menu-title opacity-40 text-xs pt-2">
+                  Color scheme
+                </li>
+                {COLORSTYLES.map((colorStyle) => (
+                  <li key={colorStyle}>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        className="radio radio-xs"
+                        name="colorStyle"
+                        checked={colorStyle === currentColorStyle}
+                        onChange={() => setDrawOptions({ colorStyle })}
+                      />
+                      {colorStyle}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
-          <div style={{ display: "flex" }}>
-            <div style={{ width: 150, height: nRows * 16, overflow: "hidden", flexShrink: 0 }}>
+
+          {/* Minimap */}
+          <div className="flex">
+            <div style={{ width: LABEL_WIDTH, flexShrink: 0 }} />
+            <MSACanvas isMinimap width={canvasWidth} />
+          </div>
+
+          {/* Main canvas with labels */}
+          <div className="flex">
+            <div
+              style={{
+                width: LABEL_WIDTH,
+                height: nRows * 16,
+                overflow: "hidden",
+                flexShrink: 0,
+              }}
+            >
               <div style={{ transform: `translateY(${offsetY}px)` }}>
                 {msaData.map((seq, i) => (
-                  <div key={i} style={{ height: 16, lineHeight: "16px", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 6, textAlign: "right" }}>
+                  <div
+                    key={i}
+                    style={{
+                      height: 16,
+                      lineHeight: "16px",
+                      fontSize: 11,
+                      fontFamily: "monospace",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      paddingRight: 8,
+                      textAlign: "right",
+                      opacity: 0.45,
+                    }}
+                  >
                     {seq.identifier}
                   </div>
                 ))}
               </div>
             </div>
-            <MSACanvas />
+            <MSACanvas width={canvasWidth} />
           </div>
-          <button
-            className="btn"
-            onClick={() =>
-              setDrawOptions({ showLetters: showLetters ? false : true })
-            }
-          >
-            {showLetters ? "Hide letters" : "Show letters"}
-          </button>
-          <fieldset>
-            <legend>Select colorstyle</legend>
-            {COLORSTYLES.map((colorStyle) => (
-              <div key={colorStyle}>
-                <input
-                  type="radio"
-                  id={colorStyle}
-                  checked={colorStyle === currentColorStyle}
-                  onChange={() => setDrawOptions({ colorStyle })}
-                />
-                <label htmlFor={colorStyle}>{colorStyle}</label>
-              </div>
-            ))}
-          </fieldset>
-          <hr />
-          <section>
-            File details:
-            <ul>
-              <li>Num. sequences: {nRows}</li>
-              <li>Num. characters: {nCols}</li>
-            </ul>
-          </section>
-          <div className="flex items-center gap-3 mt-2">
-            <button
-              className="btn btn-success"
-              onClick={handleRunNJ}
-              disabled={njStatus === "running"}
-            >
-              {njStatus === "running" ? "Building tree…" : "Build NJ tree"}
-            </button>
+
+          {/* Status bar */}
+          <div className="flex items-center gap-4 border-t border-base-200 mt-2 pt-1 text-xs font-mono opacity-35">
+            <span>
+              {nRows} sequences · {nCols} sites
+            </span>
             {njStatus === "running" && progress && (
-              <span className="text-sm opacity-70">
-                Bootstrap: {progress.current} / {progress.total}
+              <span className="ml-auto">
+                building tree · bootstrap {progress.current} / {progress.total}
               </span>
             )}
             {njStatus === "error" && (
-              <span className="text-sm text-error">Tree build failed</span>
+              <span className="ml-auto font-sans text-error opacity-100">
+                tree build failed
+              </span>
             )}
           </div>
-        </>
+        </div>
       )}
     </>
   );

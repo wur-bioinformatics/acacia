@@ -23,7 +23,7 @@ export default function Acacia(): JSX.Element {
   const treeReady = njStatus === "done";
 
   return (
-    <div className="mx-8 my-8">
+    <div className="max-w-7xl mx-auto px-8 py-8">
       <div className="tabs tabs-lift">
         {viewOptions.map((viewOption) => (
           <React.Fragment key={viewOption}>

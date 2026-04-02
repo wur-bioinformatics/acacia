@@ -83,6 +83,12 @@ class MSADrawer {
     this.options = options;
   }
 
+  resize(width: number, height: number) {
+    if (!this.canvas) return;
+    if (this.canvas.width !== width) this.canvas.width = width;
+    if (this.canvas.height !== height) this.canvas.height = height;
+  }
+
   redraw() {
     if (!this.ctx || !this.canvas || this.msaData.length === 0) return;
     this.drawMSA();
@@ -190,7 +196,8 @@ self.onmessage = (e: MessageEvent<CanvasMessage>) => {
   } else if (type === "setMSA") {
     drawer.setMSAData(e.data.msaData);
   } else if (type === "redraw") {
-    const { drawOptions, isMinimap } = e.data;
+    const { drawOptions, isMinimap, canvasWidth, canvasHeight } = e.data;
+    drawer.resize(canvasWidth, canvasHeight);
     drawer.updateDrawSettings(drawOptions, isMinimap);
     drawer.redraw();
   }

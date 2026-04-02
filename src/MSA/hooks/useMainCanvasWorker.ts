@@ -49,11 +49,15 @@ export default function useMainCanvasWorker({
   msaData,
   drawOptions,
   isMinimap,
+  canvasWidth,
+  canvasHeight,
 }: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   msaData: MSAData;
   drawOptions: DrawOptions;
   isMinimap: boolean;
+  canvasWidth: number;
+  canvasHeight: number;
 }) {
   const workerRef = useRef<Worker | null>(null);
   const hasTransferred = useRef(false);
@@ -97,6 +101,8 @@ export default function useMainCanvasWorker({
       type: "redraw",
       drawOptions,
       isMinimap,
+      canvasWidth,
+      canvasHeight,
     };
     workerRef.current.postMessage(message);
   });

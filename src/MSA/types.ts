@@ -29,5 +29,7 @@ export type RedrawMessage = {
   type: "redraw";
   drawOptions: DrawOptions;
   isMinimap: boolean;
+  canvasWidth: number;
+  canvasHeight: number;
 };
 export type CanvasMessage = InitMessage | RedrawMessage | SetMSAMessage;

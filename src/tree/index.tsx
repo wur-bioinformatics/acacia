@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { JSX } from "react";
+import { useContainerWidth } from "../hooks/useContainerWidth";
 import { useNJStore } from "../NJ/njStore";
 
 type TreeNode = {
@@ -161,10 +162,8 @@ function collectElements(
   return elements;
 }
 
-const TREE_WIDTH = 560;
 const LABEL_WIDTH = 240;
 const MARGIN = { top: 15, right: 10, bottom: 45, left: 30 };
-const SVG_WIDTH = MARGIN.left + TREE_WIDTH + LABEL_WIDTH + MARGIN.right;
 const Y_STEP = 22;
 
 export default function Tree(): JSX.Element {
@@ -190,19 +189,25 @@ export default function Tree(): JSX.Element {
     return <p className="opacity-60">No tree computed yet.</p>;
   }
 
+  const [containerRef, containerWidth] = useContainerWidth();
+  const treeWidth = containerWidth > 0
+    ? Math.max(200, containerWidth - MARGIN.left - LABEL_WIDTH - MARGIN.right)
+    : 560;
+  const svgWidth = containerWidth > 0 ? containerWidth : 870;
+
   const { layout, nLeaves, maxDepth } = parsed;
-  const xScale = maxDepth > 0 ? TREE_WIDTH / maxDepth : TREE_WIDTH;
+  const xScale = maxDepth > 0 ? treeWidth / maxDepth : treeWidth;
   const svgHeight = nLeaves * Y_STEP + MARGIN.top + MARGIN.bottom;
 
-  const elements = collectElements(layout, layout.x, xScale, Y_STEP, TREE_WIDTH, true, "r");
+  const elements = collectElements(layout, layout.x, xScale, Y_STEP, treeWidth, true, "r");
 
   const scaleVal = maxDepth > 0 ? parseFloat((maxDepth * 0.1).toPrecision(2)) : 0;
   const scalePx = scaleVal * xScale;
 
   return (
-    <div style={{ overflowX: "auto" }}>
+    <div ref={containerRef} style={{ overflowX: "auto" }}>
       <svg
-        width={SVG_WIDTH}
+        width={svgWidth}
         height={svgHeight}
         style={{ fontFamily: "ui-monospace, monospace" }}
       >
