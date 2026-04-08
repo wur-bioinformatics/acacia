@@ -5,7 +5,7 @@ import { exampleMsa } from "./example_data";
 import "./styles.css";
 
 import type { MSAData, SeqObject } from "./types";
-import { COLORSTYLES } from "./types";
+import { COLOR_SCHEME_GROUPS } from "./types";
 
 import { useDrawStore } from "./stores/drawStore";
 import { useMSAStore } from "./stores/msaStore";
@@ -108,11 +108,12 @@ function MSACanvas({
   const { msaData } = useMSAStore();
   const { drawOptions, setDrawOptions } = useDrawStore();
   const { canvasRef, overlayRef } = useCanvasRefs({ isMinimap });
-  const { offsetX, offsetY, scale } = drawOptions;
+  const { offsetX, offsetY, scale, showConsensus } = drawOptions;
 
   const cellSize = 16;
   const nCols = msaData[0].sequence.length;
-  const mainHeight = isMinimap ? 50 : msaData.length * 16;
+  const nDataRows = msaData.length + (showConsensus ? 1 : 0);
+  const mainHeight = isMinimap ? 50 : nDataRows * 16;
 
   useMainCanvasWorker({
     canvasRef,
@@ -408,7 +409,13 @@ export default function MSA(): JSX.Element {
   const nRows = msaData.length;
   const nCols = msaData[0]?.sequence.length ?? 0;
   const {
-    drawOptions: { showLetters, colorStyle: currentColorStyle, offsetY },
+    drawOptions: {
+      showLetters,
+      showConsensus,
+      colorStyle: currentColorStyle,
+      offsetY,
+      isConservation,
+    },
     setDrawOptions,
   } = useDrawStore();
   usePanZoom({ nRows, nCols });
@@ -436,84 +443,109 @@ export default function MSA(): JSX.Element {
   }
 
   return (
-    <>
+    <div ref={containerRef}>
       {!nRows && <MSAInput />}
-      {!!nRows && (
-        <div className="flex flex-col" ref={containerRef}>
-          {/* Menu bar */}
-          <div className="flex items-stretch border-b border-base-200 mb-2">
-            <div className="dropdown">
-              <button
-                tabIndex={0}
-                className="btn btn-ghost btn-xs rounded-none h-7 px-3 font-normal"
-              >
-                Analysis
-              </button>
-              <ul
-                tabIndex={0}
-                className="dropdown-content menu bg-base-100 shadow-md border border-base-200 rounded-lg z-10 w-52 p-1 text-xs"
-              >
-                <li>
-                  <button
-                    onClick={handleRunNJ}
-                    disabled={njStatus === "running"}
-                    className="flex justify-between items-center"
-                  >
-                    Build NJ tree
-                    {njStatus === "running" && (
-                      <span className="loading loading-spinner loading-xs opacity-50" />
-                    )}
-                  </button>
-                </li>
-              </ul>
-            </div>
-            <div className="dropdown">
-              <button
-                tabIndex={0}
-                className="btn btn-ghost btn-xs rounded-none h-7 px-3 font-normal"
-              >
-                View
-              </button>
-              <ul
-                tabIndex={0}
-                className="dropdown-content menu bg-base-100 shadow-md border border-base-200 rounded-lg z-10 w-52 p-1 text-xs"
-              >
-                <li>
-                  <label className="flex items-center justify-between cursor-pointer">
-                    Show letters
-                    <input
-                      type="checkbox"
-                      className="toggle toggle-xs"
-                      checked={showLetters}
-                      onChange={() =>
-                        setDrawOptions({ showLetters: !showLetters })
-                      }
-                    />
-                  </label>
-                </li>
-                <li className="menu-title opacity-40 text-xs pt-2">
-                  Color scheme
-                </li>
-                {COLORSTYLES.map((colorStyle) => (
-                  <li key={colorStyle}>
-                    <label className="flex items-center gap-2 cursor-pointer">
+      {!!nRows && containerWidth > 0 && (
+        <div className="flex flex-col">
+          <ul className="menu menu-sm lg:menu-horizontal bg-base-200 rounded-box z-20">
+            <li>
+              <details>
+                <summary>Analyse</summary>
+                <ul>
+                  <li>
+                    <button
+                      onClick={handleRunNJ}
+                      disabled={njStatus === "running"}
+                    >
+                      Build NJ tree
+                      {njStatus === "running" && (
+                        <span className="loading loading-spinner loading-xs opacity-50" />
+                      )}
+                    </button>
+                  </li>
+                </ul>
+              </details>
+            </li>
+            <li>
+              <details>
+                <summary>View</summary>
+                <ul>
+                  <li>
+                    <label className="flex items-center justify-between cursor-pointer">
+                      Show letters
                       <input
-                        type="radio"
-                        className="radio radio-xs"
-                        name="colorStyle"
-                        checked={colorStyle === currentColorStyle}
-                        onChange={() => setDrawOptions({ colorStyle })}
+                        type="checkbox"
+                        className="toggle toggle-xs"
+                        checked={showLetters}
+                        onChange={() =>
+                          setDrawOptions({ showLetters: !showLetters })
+                        }
                       />
-                      {colorStyle}
                     </label>
                   </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
+                  <li>
+                    <label className="flex items-center justify-between cursor-pointer">
+                      Show consensus
+                      <input
+                        type="checkbox"
+                        className="toggle toggle-xs"
+                        checked={showConsensus}
+                        onChange={() =>
+                          setDrawOptions({ showConsensus: !showConsensus })
+                        }
+                      />
+                    </label>
+                  </li>
+                  <li>
+                    <label className="flex items-center justify-between cursor-pointer">
+                      Conservation track
+                      <input
+                        type="checkbox"
+                        className="toggle toggle-xs"
+                        checked={isConservation}
+                        onChange={() =>
+                          setDrawOptions({ isConservation: !isConservation })
+                        }
+                      />
+                    </label>
+                  </li>
+                  <li>
+                    <a className="menu-title">Colour options</a>
+                    <ul>
+                      {COLOR_SCHEME_GROUPS.map((group) => (
+                        <>
+                          <li
+                            key={group.label}
+                            className="menu-title text-xs pt-2"
+                          >
+                            {group.label}
+                          </li>
+                          {group.schemes.map((colorStyle) => (
+                            <li key={colorStyle}>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  className="radio radio-xs"
+                                  name="colorStyle"
+                                  checked={colorStyle === currentColorStyle}
+                                  onChange={() =>
+                                    setDrawOptions({ colorStyle })
+                                  }
+                                />
+                                {colorStyle}
+                              </label>
+                            </li>
+                          ))}
+                        </>
+                      ))}
+                    </ul>
+                  </li>
+                </ul>
+              </details>
+            </li>
+          </ul>
           {/* Minimap */}
-          <div className="flex">
+          <div className="flex" style={{ marginBottom: 4 }}>
             <div style={{ width: LABEL_WIDTH, flexShrink: 0 }} />
             <MSACanvas isMinimap width={canvasWidth} />
           </div>
@@ -523,12 +555,31 @@ export default function MSA(): JSX.Element {
             <div
               style={{
                 width: LABEL_WIDTH,
-                height: nRows * 16,
+                height: (nRows + (showConsensus ? 1 : 0)) * 16,
                 overflow: "hidden",
                 flexShrink: 0,
               }}
             >
               <div style={{ transform: `translateY(${offsetY}px)` }}>
+                {showConsensus && (
+                  <div
+                    style={{
+                      height: 16,
+                      lineHeight: "16px",
+                      fontSize: 11,
+                      fontFamily: "monospace",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      paddingRight: 8,
+                      textAlign: "right",
+                      fontWeight: "bold",
+                      opacity: 0.7,
+                    }}
+                  >
+                    Consensus
+                  </div>
+                )}
                 {msaData.map((seq, i) => (
                   <div
                     key={i}
@@ -571,6 +622,6 @@ export default function MSA(): JSX.Element {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

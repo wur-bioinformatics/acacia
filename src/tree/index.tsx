@@ -169,6 +169,8 @@ const Y_STEP = 22;
 export default function Tree(): JSX.Element {
   const { newick, status, error } = useNJStore();
 
+  const [containerRef, containerWidth] = useContainerWidth();
+
   const parsed = useMemo(() => {
     if (!newick) return null;
     try {
@@ -180,16 +182,14 @@ export default function Tree(): JSX.Element {
   }, [newick]);
 
   if (status === "running") {
-    return <p className="opacity-60">Computing Neighbor-Joining tree…</p>;
+    return <div ref={containerRef}><p className="opacity-60">Computing Neighbor-Joining tree…</p></div>;
   }
   if (status === "error") {
-    return <p className="text-error">Tree error: {error}</p>;
+    return <div ref={containerRef}><p className="text-error">Tree error: {error}</p></div>;
   }
   if (!parsed) {
-    return <p className="opacity-60">No tree computed yet.</p>;
+    return <div ref={containerRef}><p className="opacity-60">No tree computed yet.</p></div>;
   }
-
-  const [containerRef, containerWidth] = useContainerWidth();
   const treeWidth = containerWidth > 0
     ? Math.max(200, containerWidth - MARGIN.left - LABEL_WIDTH - MARGIN.right)
     : 560;

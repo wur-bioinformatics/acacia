@@ -11,12 +11,14 @@ type DrawState = {
 export const useDrawStore = create<DrawState>((set) => ({
   drawOptions: {
     showLetters: true,
+    showConsensus: true,
     scale: 1,
     offsetX: 0,
     offsetY: 0,
     isMinimap: false,
     cellSize: 16,
-    colorStyle: "Default",
+    colorStyle: "DNA",
+    isConservation: false,
   },
   setDrawOptions: (options) =>
     set((state) => ({

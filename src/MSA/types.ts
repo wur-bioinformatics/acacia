@@ -1,19 +1,31 @@
 export const COLORSTYLES = [
-  "Default",
+  "DNA",
+  "DNA ClustalX",
+  "AA ClustalX",
+  "AA Zappo",
+  "AA Taylor",
   "Parsimony Informative",
   "Conserved",
   "Variable",
 ] as const;
 export type ColorStyle = (typeof COLORSTYLES)[number];
 
+export const COLOR_SCHEME_GROUPS: { label: string; schemes: ColorStyle[] }[] = [
+  { label: "DNA", schemes: ["DNA", "DNA ClustalX"] },
+  { label: "Amino Acid", schemes: ["AA ClustalX", "AA Zappo", "AA Taylor"] },
+  { label: "Analysis", schemes: ["Parsimony Informative", "Conserved", "Variable"] },
+];
+
 export type DrawOptions = {
   cellSize: number;
   showLetters: boolean;
+  showConsensus: boolean;
   scale: number;
   isMinimap: boolean;
   offsetX: number;
   offsetY: number;
   colorStyle: ColorStyle;
+  isConservation: boolean;
 };
 
 export type SeqObject = {
