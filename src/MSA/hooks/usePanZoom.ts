@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { useCanvasStore } from "../stores/canvasStore";
+import { useCanvasContext } from "../context/CanvasContext";
 import { useDrawStore } from "../stores/drawStore";
 
 /**
@@ -53,7 +53,7 @@ export default function usePanZoom({
     drawOptions: { scale, cellSize },
     setDrawOptions,
   } = useDrawStore();
-  const { mainOverlayCanvas: canvas } = useCanvasStore();
+  const { mainOverlayCanvas: canvas } = useCanvasContext();
   const isDragging = useRef(false);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
   const pinchStartDist = useRef(0);

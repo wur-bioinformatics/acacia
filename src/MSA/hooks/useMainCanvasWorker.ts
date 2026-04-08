@@ -67,6 +67,9 @@ export default function useMainCanvasWorker({
     if (!canvasRef) return;
     if (!workerRef.current) {
       workerRef.current = new Worker(workerUrl, { type: "module" });
+      workerRef.current.onmessage = (ev: MessageEvent) => {
+        console.log(ev.data);
+      };
     }
 
     if (!hasTransferred.current && canvasRef.current) {
@@ -93,10 +96,6 @@ export default function useMainCanvasWorker({
   useEffect(() => {
     // Effect to send draw options to worker
     if (!workerRef.current) return;
-    // console.log({ drawOptions });
-    workerRef.current.onmessage = (ev: MessageEvent) => {
-      console.log(ev.data);
-    };
     const message: RedrawMessage = {
       type: "redraw",
       drawOptions,
@@ -105,5 +104,5 @@ export default function useMainCanvasWorker({
       canvasHeight,
     };
     workerRef.current.postMessage(message);
-  });
+  }, [drawOptions, isMinimap, canvasWidth, canvasHeight]);
 }

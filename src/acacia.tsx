@@ -23,7 +23,7 @@ export default function Acacia(): JSX.Element {
   const treeReady = njStatus === "done";
 
   return (
-    <div className="max-w-7xl mx-auto px-8 py-8">
+    <div className="max-w-7xl mx-auto px-3 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8">
       <div className="tabs tabs-lift">
         {viewOptions.map((viewOption) => (
           <React.Fragment key={viewOption}>
@@ -36,7 +36,7 @@ export default function Acacia(): JSX.Element {
               onChange={() => setView(viewOption)}
               disabled={viewOption !== "MSA" && !treeReady}
             />
-            <div className="tab-content bg-base-100 border-base-300 p-6">
+            <div className="tab-content bg-base-100 border-base-300 p-3 sm:p-4 md:p-6">
               <ViewDispatcher view={viewOption} />
             </div>
           </React.Fragment>

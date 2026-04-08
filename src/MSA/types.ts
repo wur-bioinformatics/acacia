@@ -10,11 +10,6 @@ export const COLORSTYLES = [
 ] as const;
 export type ColorStyle = (typeof COLORSTYLES)[number];
 
-export const COLOR_SCHEME_GROUPS: { label: string; schemes: ColorStyle[] }[] = [
-  { label: "DNA", schemes: ["DNA", "DNA ClustalX"] },
-  { label: "Amino Acid", schemes: ["AA ClustalX", "AA Zappo", "AA Taylor"] },
-  { label: "Analysis", schemes: ["Parsimony Informative", "Conserved", "Variable"] },
-];
 
 export type DrawOptions = {
   cellSize: number;
