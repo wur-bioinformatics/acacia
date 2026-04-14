@@ -1,72 +1,63 @@
-import type { MSAData } from "../types";
+import type { MSAData, MSAColumnAnalysis, MSAColumnStat } from "../types";
 
-export type ColumnStat = {
-  dominantChar: string;
-  /** Fraction of non-gap positions that match the dominant character (0–1). */
-  score: number;
-  counts: Record<string, number>;
-};
+function columnChars(msaData: MSAData, col: number): string[] {
+  return msaData.map((row) => row.sequence[col]);
+}
 
 /** Single pass over every column, producing consensus + conservation data. */
-export function computeColumnStats(msaData: MSAData): ColumnStat[] {
+export function computeColumnStats(msaData: MSAData): MSAColumnStat[] {
   const nCols = msaData[0].sequence.length;
-  const nRows = msaData.length;
-  const stats: ColumnStat[] = [];
-  for (let col = 0; col < nCols; col++) {
-    const counts: Record<string, number> = {};
-    let total = 0;
-    for (let row = 0; row < nRows; row++) {
-      const char = msaData[row].sequence[col].toUpperCase();
-      if (char !== "-") {
-        counts[char] = (counts[char] || 0) + 1;
-        total++;
-      }
-    }
+  return Array.from({ length: nCols }, (_, col) => {
+    const counts = columnChars(msaData, col)
+      .map((c) => c.toUpperCase())
+      .filter((c) => c !== "-")
+      .reduce<Record<string, number>>((acc, c) => {
+        acc[c] = (acc[c] || 0) + 1;
+        return acc;
+      }, {});
+    const total = Object.values(counts).reduce((s, n) => s + n, 0);
     const entries = Object.entries(counts);
     const dominantChar =
       entries.length === 0
         ? "-"
         : entries.reduce((a, b) => (b[1] > a[1] ? b : a))[0];
     const score = total === 0 ? 0 : (counts[dominantChar] ?? 0) / total;
-    stats.push({ dominantChar, score, counts });
-  }
-  return stats;
+    return { dominantChar, score, counts };
+  });
 }
 
-export function computeConsensus(stats: ColumnStat[]): string[] {
+export function computeConsensus(stats: MSAColumnStat[]): string[] {
   return stats.map((s) => s.dominantChar);
 }
 
-export function computeConservationScores(stats: ColumnStat[]): number[] {
+export function computeConservationScores(stats: MSAColumnStat[]): number[] {
   return stats.map((s) => s.score);
 }
 
-export function analyseMSAColumns(msaData: MSAData): {
-  parsimonyInformativeSites: number[];
-  conservedSites: number[];
-  variableSites: number[];
-} {
-  const parsimonyInformativeSites: number[] = [];
-  const conservedSites: number[] = [];
-  const variableSites: number[] = [];
-
+export function analyseMSAColumns(msaData: MSAData): MSAColumnAnalysis {
   const nCols = msaData[0].sequence.length;
-  const nRows = msaData.length;
 
-  for (let col = 0; col < nCols; col++) {
-    const counts: Record<string, number> = {};
-    for (let row = 0; row < nRows; row++) {
-      const char = msaData[row].sequence[col];
-      counts[char] = (counts[char] || 0) + 1;
-    }
-    const charCounts = Object.values(counts);
-    if (Object.keys(counts).length === 1) {
-      conservedSites.push(col);
-    } else {
-      if (Math.min(...charCounts) > 1) parsimonyInformativeSites.push(col);
-      variableSites.push(col);
-    }
-  }
-
-  return { parsimonyInformativeSites, conservedSites, variableSites };
+  return Array.from({ length: nCols }, (_, col) => {
+    const counts = columnChars(msaData, col).reduce<Record<string, number>>(
+      (acc, c) => {
+        acc[c] = (acc[c] || 0) + 1;
+        return acc;
+      },
+      {},
+    );
+    return { col, counts };
+  }).reduce<MSAColumnAnalysis>(
+    (acc, { col, counts }) => {
+      const charCounts = Object.values(counts);
+      if (Object.keys(counts).length === 1) {
+        acc.conservedSites.push(col);
+      } else {
+        if (Math.min(...charCounts) > 1)
+          acc.parsimonyInformativeSites.push(col);
+        acc.variableSites.push(col);
+      }
+      return acc;
+    },
+    { parsimonyInformativeSites: [], conservedSites: [], variableSites: [] },
+  );
 }

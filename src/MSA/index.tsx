@@ -1,11 +1,9 @@
-import type { JSX } from "react";
-import { useState, useRef } from "react";
-import { exampleMsa } from "./example_data";
+import { useMemo, type JSX } from "react";
 
 import "./styles.css";
 
 import { parseFasta, readTextFile } from "./utils/fasta";
-import { LABEL_WIDTH, CELL_SIZE, MINIMAP_HEIGHT } from "./constants";
+import { CELL_SIZE, MINIMAP_HEIGHT } from "./constants";
 
 import { useDrawStore } from "./stores/drawStore";
 import { useMSAStore } from "./stores/msaStore";
@@ -13,11 +11,12 @@ import usePanZoom from "./hooks/usePanZoom";
 import useCanvasRefs from "./hooks/useCanvasRefs";
 import useMainCanvasWorker from "./hooks/useMainCanvasWorker";
 import useOverlay from "./hooks/useOverlay";
-import { useNJWorker, useNJStore } from "../NJ";
-import { useViewStore } from "../viewStore";
+import useLabelDividerResize from "./hooks/useLabelDividerResize";
+import { useNJStore } from "../NJ/njStore";
 import { useContainerWidth } from "../hooks/useContainerWidth";
-import type { NJConfig } from "@holmrenser/nj";
+import { analyseMSAColumns } from "./utils/msaAnalysis";
 
+import { exampleMsa } from "./example_data";
 import MSAToolbar from "./components/MSAToolbar";
 import MSALabels from "./components/MSALabels";
 import { CanvasProvider } from "./context/CanvasContext";
@@ -77,6 +76,7 @@ function MSACanvas({
           left: 0,
           zIndex: 2,
           pointerEvents: "auto",
+          touchAction: "none",
         }}
       />
     </div>
@@ -136,118 +136,72 @@ function MSAInput() {
 
 function MSAInner(): JSX.Element {
   const { msaData } = useMSAStore();
-  const { runNJ } = useNJWorker();
-  const {
-    status: njStatus,
-    progress,
-    setRunning,
-    setResult,
-    setError,
-    setProgress,
-  } = useNJStore();
-  const { setView } = useViewStore();
+  const { status: njStatus, progress } = useNJStore();
   const nRows = msaData.length;
   const nCols = msaData[0]?.sequence.length ?? 0;
-  const {
-    drawOptions: {
-      showLetters,
-      showConsensus,
-      colorStyle: currentColorStyle,
-      offsetY,
-      isConservation,
-    },
-    setDrawOptions,
-  } = useDrawStore();
+  const { drawOptions: { showLabels, offsetY, colorStyle } } = useDrawStore();
+  const analysis = useMemo(() => msaData.length > 0 ? analyseMSAColumns(msaData) : null, [msaData]);
+
   usePanZoom({ nRows, nCols });
 
-  const [labelWidth, setLabelWidth] = useState(LABEL_WIDTH);
+  const { labelWidth, onMouseDown: onDividerMouseDown, onTouchStart: onDividerTouchStart } =
+    useLabelDividerResize();
+
   const DIVIDER_WIDTH = 8;
-  const dragState = useRef<{ startX: number; startWidth: number } | null>(null);
+  const effectiveLabelWidth = showLabels ? labelWidth : 0;
+  const effectiveDividerWidth = showLabels ? DIVIDER_WIDTH : 0;
 
-  function handleDividerMouseDown(e: React.MouseEvent) {
-    e.preventDefault();
-    dragState.current = { startX: e.clientX, startWidth: labelWidth };
-    function onMouseMove(ev: MouseEvent) {
-      if (!dragState.current) return;
-      const delta = ev.clientX - dragState.current.startX;
-      setLabelWidth(Math.max(50, dragState.current.startWidth + delta));
-    }
-    function onMouseUp() {
-      dragState.current = null;
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
-    }
-    document.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("mouseup", onMouseUp);
-  }
-
-  const [containerRef, containerWidth] = useContainerWidth(LABEL_WIDTH + 300);
-  const canvasWidth = Math.max(300, containerWidth - labelWidth - DIVIDER_WIDTH);
-
-  function handleRunNJ() {
-    setRunning();
-    const njConfig: NJConfig = {
-      msa: msaData,
-      n_bootstrap_samples: 100,
-      substitution_model: "PDiff",
-    };
-    runNJ({
-      njConfig,
-      onProgress: (current, total) => setProgress(current, total),
-    })
-      .then((newick) => {
-        setResult(newick);
-        setView("Tree");
-      })
-      .catch((err: Error) => setError(err.message));
-  }
+  const [containerRef, containerWidth] = useContainerWidth(labelWidth + 300);
+  const canvasWidth = Math.max(
+    300,
+    containerWidth - effectiveLabelWidth - effectiveDividerWidth,
+  );
 
   return (
     <div ref={containerRef}>
       {!nRows && <MSAInput />}
       {!!nRows && containerWidth > 0 && (
         <div className="flex flex-col">
-          <MSAToolbar
-            showLetters={showLetters}
-            showConsensus={showConsensus}
-            isConservation={isConservation}
-            currentColorStyle={currentColorStyle}
-            njStatus={njStatus}
-            onToggleLetters={() => setDrawOptions({ showLetters: !showLetters })}
-            onToggleConsensus={() => setDrawOptions({ showConsensus: !showConsensus })}
-            onToggleConservation={() => setDrawOptions({ isConservation: !isConservation })}
-            onColorStyleChange={(colorStyle) => setDrawOptions({ colorStyle })}
-            onRunNJ={handleRunNJ}
-          />
+          <MSAToolbar />
 
           {/* Minimap / conservation track */}
-          <div className="flex" style={{ marginBottom: 4 }}>
-            <div style={{ width: labelWidth + DIVIDER_WIDTH, flexShrink: 0 }} />
+          <div className="flex" style={{ marginBottom: 4, marginTop: 4 }}>
+            <div
+              style={{
+                width: effectiveLabelWidth + effectiveDividerWidth,
+                flexShrink: 0,
+              }}
+            />
             <MSACanvas isMinimap width={canvasWidth} />
           </div>
 
           {/* Main canvas with labels */}
           <div className="flex">
-            <MSALabels
-              msaData={msaData}
-              showConsensus={showConsensus}
-              offsetY={offsetY}
-              width={labelWidth}
-            />
-            <div
-              className="group"
-              onMouseDown={handleDividerMouseDown}
-              style={{
-                width: DIVIDER_WIDTH,
-                flexShrink: 0,
-                cursor: "col-resize",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <div className="w-px h-full bg-base-300 group-hover:bg-primary transition-colors" />
-            </div>
+            {showLabels && (
+              <MSALabels
+                msaData={msaData}
+                showConsensus={false}
+                offsetY={offsetY}
+                width={labelWidth}
+              />
+            )}
+            {showLabels && (
+              <div
+                className="group"
+                onMouseDown={onDividerMouseDown}
+                onTouchStart={onDividerTouchStart}
+                style={{
+                  width: DIVIDER_WIDTH,
+                  flexShrink: 0,
+                  cursor: "col-resize",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <div className="w-px h-full bg-base-300 group-hover:bg-primary transition-colors" />
+              </div>
+            )}
             <MSACanvas width={canvasWidth} />
           </div>
 
@@ -256,6 +210,15 @@ function MSAInner(): JSX.Element {
             <span>
               {nRows} sequences · {nCols} sites
             </span>
+            {analysis && colorStyle === "Parsimony Informative" && (
+              <span>{analysis.parsimonyInformativeSites.length} parsimony informative</span>
+            )}
+            {analysis && colorStyle === "Conserved" && (
+              <span>{analysis.conservedSites.length} conserved</span>
+            )}
+            {analysis && colorStyle === "Variable" && (
+              <span>{analysis.variableSites.length} variable</span>
+            )}
             {njStatus === "running" && progress && (
               <span className="ml-auto">
                 building tree · bootstrap {progress.current} / {progress.total}

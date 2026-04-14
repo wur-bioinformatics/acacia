@@ -1,4 +1,4 @@
-import { NJConfig } from "@holmrenser/nj";
+import { DistanceResult, NJConfig } from "@holmrenser/nj";
 
 export type NJOptions = {
   njConfig: NJConfig;
@@ -11,6 +11,6 @@ export type NJMessage = {
 };
 
 export type NJResultMessage =
-  | { type: "njResult"; result: string }
+  | { type: "njResult"; newick: string; distanceMatrix: DistanceResult; avgDistance: number }
   | { type: "njError"; error: string }
   | { type: "njProgress"; current: number; total: number };

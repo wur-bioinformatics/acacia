@@ -204,8 +204,12 @@ export default function usePanZoom({
       }
     };
 
-    const onTouchEnd = () => {
-      lastPos.current = null;
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        lastPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      } else {
+        lastPos.current = null;
+      }
     };
 
     // Attach listeners

@@ -1,5 +1,6 @@
 import MSA from "./MSA";
 import Tree from "./tree";
+import { DistanceMatrix } from "./NJ";
 import React, { JSX } from "react";
 import { viewOptions, useViewStore, type View } from "./viewStore";
 import { useNJStore } from "./NJ/njStore";
@@ -12,6 +13,8 @@ function ViewDispatcher({ view }: { view: View }): JSX.Element | null {
       return <Tree />;
     case "Tree + MSA":
       return <div>Tree + MSA View (to be implemented)</div>;
+    case "Distances":
+      return <DistanceMatrix />;
     default:
       return null;
   }
@@ -23,7 +26,7 @@ export default function Acacia(): JSX.Element {
   const treeReady = njStatus === "done";
 
   return (
-    <div className="max-w-7xl mx-auto px-3 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8">
+    <div className="max-w-screen mx-auto px-3 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8">
       <div className="tabs tabs-lift">
         {viewOptions.map((viewOption) => (
           <React.Fragment key={viewOption}>

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export const viewOptions = ["MSA", "Tree", "Tree + MSA"] as const;
+export const viewOptions = ["MSA", "Tree", "Tree + MSA", "Distances"] as const;
 export type View = (typeof viewOptions)[number];
 
 interface ViewState {

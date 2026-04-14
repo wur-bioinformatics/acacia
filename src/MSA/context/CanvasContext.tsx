@@ -14,11 +14,19 @@ export type CanvasState = {
 
 const CanvasContext = createContext<CanvasState | null>(null);
 
-export function CanvasProvider({ children }: { children: ReactNode }): JSX.Element {
+export function CanvasProvider({
+  children,
+}: {
+  children: ReactNode;
+}): JSX.Element {
   const [mainCanvas, setMainCanvas] = useState<HTMLCanvasElement | null>(null);
-  const [mainOverlayCanvas, setMainOverlayCanvas] = useState<HTMLCanvasElement | null>(null);
-  const [minimapCanvas, setMinimapCanvas] = useState<HTMLCanvasElement | null>(null);
-  const [minimapOverlayCanvas, setMinimapOverlayCanvas] = useState<HTMLCanvasElement | null>(null);
+  const [mainOverlayCanvas, setMainOverlayCanvas] =
+    useState<HTMLCanvasElement | null>(null);
+  const [minimapCanvas, setMinimapCanvas] = useState<HTMLCanvasElement | null>(
+    null,
+  );
+  const [minimapOverlayCanvas, setMinimapOverlayCanvas] =
+    useState<HTMLCanvasElement | null>(null);
 
   return (
     <CanvasContext.Provider
@@ -40,6 +48,7 @@ export function CanvasProvider({ children }: { children: ReactNode }): JSX.Eleme
 
 export function useCanvasContext(): CanvasState {
   const ctx = useContext(CanvasContext);
-  if (!ctx) throw new Error("useCanvasContext must be used inside <CanvasProvider>");
+  if (!ctx)
+    throw new Error("useCanvasContext must be used inside <CanvasProvider>");
   return ctx;
 }

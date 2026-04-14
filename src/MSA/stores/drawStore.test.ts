@@ -7,6 +7,7 @@ beforeEach(() => {
     drawOptions: {
       showLetters: true,
       showConsensus: true,
+      showLabels: true,
       scale: 1,
       offsetX: 0,
       offsetY: 0,

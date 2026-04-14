@@ -162,15 +162,62 @@ export default function useOverlay({
 
     const onMouseUp = () => { drag = null; };
 
+    const onTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      const rect = overlayCanvas.getBoundingClientRect();
+      const mx = e.touches[0].clientX - rect.left;
+      const { boxLeft, boxW, boxRight } = getBox();
+      if (mx < boxLeft - EDGE || mx > boxRight + EDGE) return;
+      const { offsetX, scale } = drawOptionsRef.current;
+      let mode: DragState["mode"];
+      if (Math.abs(mx - boxLeft) <= EDGE) mode = "resize-left";
+      else if (Math.abs(mx - boxRight) <= EDGE) mode = "resize-right";
+      else mode = "pan";
+      drag = { mode, startClientX: e.touches[0].clientX, startOffsetX: offsetX, startScale: scale, startBoxLeft: boxLeft, startBoxW: boxW };
+    };
+
+    const onWindowTouchMove = (e: TouchEvent) => {
+      if (!drag) return;
+      e.preventDefault();
+      const delta = e.touches[0].clientX - drag.startClientX;
+      if (drag.mode === "pan") {
+        const newOffsetX = clampOffsetX(
+          drag.startOffsetX - (delta * drag.startScale) / scaleX,
+          drag.startScale,
+        );
+        setDrawOptions((prev) => ({ ...prev, offsetX: newOffsetX }));
+      } else if (drag.mode === "resize-right") {
+        const newBoxW = Math.max(1, drag.startBoxW + delta);
+        const newScale = clampScale((W * scaleX) / newBoxW);
+        const viewStart = -drag.startOffsetX / drag.startScale;
+        const newOffsetX = clampOffsetX(-viewStart * newScale, newScale);
+        setDrawOptions((prev) => ({ ...prev, scale: newScale, offsetX: newOffsetX }));
+      } else {
+        const newBoxW = Math.max(1, drag.startBoxW - delta);
+        const newScale = clampScale((W * scaleX) / newBoxW);
+        const viewEnd = (W - drag.startOffsetX) / drag.startScale;
+        const newOffsetX = clampOffsetX(W - viewEnd * newScale, newScale);
+        setDrawOptions((prev) => ({ ...prev, scale: newScale, offsetX: newOffsetX }));
+      }
+    };
+
+    const onTouchEnd = () => { drag = null; };
+
     overlayCanvas.addEventListener("mousedown", onMouseDown);
     overlayCanvas.addEventListener("mousemove", onCanvasMouseMove);
     window.addEventListener("mousemove", onWindowMouseMove);
     window.addEventListener("mouseup", onMouseUp);
+    overlayCanvas.addEventListener("touchstart", onTouchStart, { passive: false });
+    window.addEventListener("touchmove", onWindowTouchMove, { passive: false });
+    window.addEventListener("touchend", onTouchEnd);
     return () => {
       overlayCanvas.removeEventListener("mousedown", onMouseDown);
       overlayCanvas.removeEventListener("mousemove", onCanvasMouseMove);
       window.removeEventListener("mousemove", onWindowMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
+      overlayCanvas.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onWindowTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
     };
   }, [isMinimap, overlayRef, nCols, setDrawOptions, width]);
 }

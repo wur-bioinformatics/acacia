@@ -1,4 +1,4 @@
-import { nj } from "@holmrenser/nj";
+import { nj, type NJEvent } from "@holmrenser/nj";
 import { NJMessage } from "./types";
 
 self.onmessage = (event: MessageEvent<NJMessage>) => {
@@ -10,11 +10,16 @@ self.onmessage = (event: MessageEvent<NJMessage>) => {
 
   if (type === "runNJ") {
     try {
-      const onProgress = (current: number, total: number) => {
-        postMessage({ type: "njProgress", current, total });
+      const onEvent = (njEvent: NJEvent) => {
+        if (njEvent.type === "BootstrapProgress") {
+          postMessage({ type: "njProgress", current: njEvent.completed, total: njEvent.total });
+        }
       };
-      const result = nj(njConfig, onProgress);
-      postMessage({ type: "njResult", result });
+      const { newick, distance_matrix: distanceMatrix, average_distance: avgDistance } = nj(
+        { ...njConfig, return_distance_matrix: true, return_average_distance: true },
+        onEvent,
+      );
+      postMessage({ type: "njResult", newick, distanceMatrix, avgDistance });
     } catch (error) {
       postMessage({
         type: "njError",

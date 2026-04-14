@@ -1,4 +1,4 @@
-import type { ColorStyle } from "./types";
+import type { ColorStyle, MSAColumnAnalysis } from "./types";
 
 // DNA – default ACGT
 export const dnaColorMap = new Map([
@@ -85,17 +85,11 @@ const HIGHLIGHT_COLOR = "royalblue";
 const UNKNOWN_COLOR = "#cccccc";
 const GAP_COLOR = "#f4f4f4";
 
-export type ColumnAnalysis = {
-  parsimonyInformativeSites: number[];
-  conservedSites: number[];
-  variableSites: number[];
-};
-
 export function charToColor(
   char: string,
   col: number,
   style: ColorStyle,
-  analysis: ColumnAnalysis,
+  analysis: MSAColumnAnalysis,
 ): string {
   const upper = char.toUpperCase();
   switch (style) {

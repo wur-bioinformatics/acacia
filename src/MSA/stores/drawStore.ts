@@ -12,6 +12,7 @@ export const useDrawStore = create<DrawState>((set) => ({
   drawOptions: {
     showLetters: true,
     showConsensus: true,
+    showLabels: window.innerWidth >= 768,
     scale: 1,
     offsetX: 0,
     offsetY: 0,

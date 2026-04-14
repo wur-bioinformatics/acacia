@@ -1,20 +1,25 @@
-import { MSAData, CanvasMessage, DrawOptions } from "./types";
+import {
+  MSAData,
+  CanvasMessage,
+  DrawOptions,
+  type MSAColumnStat,
+  type MSAColumnAnalysis,
+} from "./types";
 import {
   computeColumnStats,
   computeConsensus,
   computeConservationScores,
   analyseMSAColumns,
-  type ColumnStat,
 } from "./utils/msaAnalysis";
-import { charToColor, type ColumnAnalysis } from "./colourSchemes";
+import { charToColor } from "./colourSchemes";
 import { CELL_SIZE, CELL_FILL_RATIO } from "./constants";
 
 class CanvasDrawer {
   private canvas: OffscreenCanvas | null = null;
   private ctx: OffscreenCanvasRenderingContext2D | null = null;
   private msaData: MSAData = [];
-  private columnStats: ColumnStat[] = [];
-  private analysis: ColumnAnalysis = {
+  private columnStats: MSAColumnStat[] = [];
+  private analysis: MSAColumnAnalysis = {
     parsimonyInformativeSites: [],
     conservedSites: [],
     variableSites: [],
@@ -23,6 +28,7 @@ class CanvasDrawer {
     cellSize: CELL_SIZE,
     showLetters: true,
     showConsensus: false,
+    showLabels: true,
     scale: 1,
     offsetX: 0,
     offsetY: 0,
