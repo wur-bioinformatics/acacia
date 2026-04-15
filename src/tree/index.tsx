@@ -2,13 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JSX } from "react";
 import { useContainerWidth } from "../hooks/useContainerWidth";
 import { useNJStore } from "../NJ/njStore";
-import { buildLayout, computeLeafCounts, parseNewick } from "./layout";
+import { buildLayout, flattenTree, parseNewick } from "./layout";
 import type { LayoutNode } from "./types";
 import { useTreeStore } from "./treeStore";
-import { LABEL_WIDTH, MARGIN, Y_STEP, RADIAL_LABEL_GAP } from "./constants";
+import { useSequenceStore } from "../sequenceStore";
+import { LABEL_WIDTH, MARGIN, RADIAL_LABEL_GAP } from "./constants";
 import useTreePanZoom from "./hooks/useTreePanZoom";
 import NodePanel from "./components/NodePanel";
 import type { PanelState } from "./components/NodePanel";
+import BranchPanel from "./components/BranchPanel";
 import Branches from "./components/Branches";
 import TreeToolbar from "./components/TreeToolbar";
 import ScaleBar from "./components/ScaleBar";
@@ -21,18 +23,20 @@ export default function Tree(): JSX.Element {
     panX,
     panY,
     zoom,
-    root,
+    yStep,
+    widthScale,
+    flatTree,
     collapsedNodes,
     selectedNodeId,
     setSelectedNodeId,
-    setOriginalRoot,
+    setFlatTree,
   } = useTreeStore();
 
   const [containerRef, containerWidth] = useContainerWidth();
   const svgRef = useRef<SVGSVGElement>(null);
-  const didDragRef = useTreePanZoom(svgRef);
 
   const [panel, setPanel] = useState<PanelState | null>(null);
+  const [branchPanel, setBranchPanel] = useState<PanelState | null>(null);
 
   // Close panel when selection is cleared (e.g. by rerootOnBranch in the store)
   useEffect(() => {
@@ -42,28 +46,28 @@ export default function Tree(): JSX.Element {
   useEffect(() => {
     if (!newick) return;
     try {
-      setOriginalRoot(parseNewick(newick));
+      const ft = flattenTree(parseNewick(newick));
+      setFlatTree(ft);
+      const leafNames = ft.leafOrder.map((id) => ft.nodes.get(id)!.name);
+      useSequenceStore.getState().syncFromTreeLeafOrder(leafNames);
     } catch (e) {
       console.error("Failed to parse newick:", e, "\nNewick string:", newick);
     }
-  }, [newick, setOriginalRoot]);
-
-  const leafCounts = useMemo(() => {
-    if (!root) return new Map();
-    return computeLeafCounts(root);
-  }, [root]);
+  }, [newick, setFlatTree]);
 
   const treeWidth =
     containerWidth > 0
-      ? Math.max(200, containerWidth - MARGIN.left - LABEL_WIDTH - MARGIN.right)
-      : 560;
+      ? Math.max(200, (containerWidth - MARGIN.left - LABEL_WIDTH - MARGIN.right) * widthScale)
+      : 560 * widthScale;
 
   const maxRadius = Math.min(treeWidth, 300) / 2;
 
   const layoutResult = useMemo(() => {
-    if (!root) return null;
-    return buildLayout(root, layoutMode, Y_STEP, maxRadius, collapsedNodes, leafCounts);
-  }, [root, layoutMode, collapsedNodes, leafCounts, maxRadius]);
+    if (!flatTree) return null;
+    return buildLayout(flatTree, layoutMode, yStep, maxRadius, collapsedNodes);
+  }, [flatTree, layoutMode, yStep, collapsedNodes, maxRadius]);
+
+  const didDragRef = useTreePanZoom(svgRef, !!layoutResult);
 
   const handleNodeClick = useCallback(
     (node: LayoutNode, e: React.MouseEvent) => {
@@ -84,6 +88,24 @@ export default function Tree(): JSX.Element {
     setSelectedNodeId(null);
     setPanel(null);
   }, [setSelectedNodeId]);
+
+  const handleBranchClick = useCallback(
+    (node: LayoutNode, e: React.MouseEvent) => {
+      e.preventDefault();
+      setBranchPanel({
+        id: node.id,
+        isLeaf: node.children.length === 0,
+        leafName: node.children.length === 0 ? node.node.name : undefined,
+        x: e.clientX,
+        y: e.clientY,
+      });
+    },
+    [],
+  );
+
+  const handleCloseBranchPanel = useCallback(() => {
+    setBranchPanel(null);
+  }, []);
 
   if (status === "running") {
     return (
@@ -110,13 +132,13 @@ export default function Tree(): JSX.Element {
   const { root: layoutRoot, nLeaves, maxDepth } = layoutResult;
   const isRadial = layoutMode === "radial";
 
-  const svgWidth =
-    containerWidth > 0
-      ? containerWidth
-      : treeWidth + MARGIN.left + LABEL_WIDTH + MARGIN.right;
+  const svgWidth = Math.max(
+    containerWidth > 0 ? containerWidth : 800,
+    treeWidth + MARGIN.left + LABEL_WIDTH + MARGIN.right,
+  );
   const svgHeight = isRadial
     ? (maxRadius + RADIAL_LABEL_GAP + 60) * 2 + MARGIN.top + MARGIN.bottom
-    : nLeaves * Y_STEP + MARGIN.top + MARGIN.bottom;
+    : nLeaves * yStep + MARGIN.top + MARGIN.bottom;
 
   const xScale = maxDepth > 0 ? treeWidth / maxDepth : treeWidth;
   const radCx = maxRadius + RADIAL_LABEL_GAP + 40;
@@ -139,6 +161,7 @@ export default function Tree(): JSX.Element {
             if (!didDragRef.current) {
               setSelectedNodeId(null);
               setPanel(null);
+              setBranchPanel(null);
             }
           }}
         >
@@ -154,6 +177,7 @@ export default function Tree(): JSX.Element {
                   cy={radCy}
                   maxRadius={maxRadius}
                   onNodeClick={handleNodeClick}
+                  onBranchClick={handleBranchClick}
                   didDragRef={didDragRef}
                 />
               ) : (
@@ -166,6 +190,7 @@ export default function Tree(): JSX.Element {
                     xScale={xScale}
                     treeWidth={treeWidth}
                     onNodeClick={handleNodeClick}
+                    onBranchClick={handleBranchClick}
                     didDragRef={didDragRef}
                   />
                   {maxDepth > 0 && (
@@ -187,6 +212,13 @@ export default function Tree(): JSX.Element {
           panel={panel}
           layoutRoot={layoutRoot}
           onClose={handleClosePanel}
+        />
+      )}
+      {branchPanel && (
+        <BranchPanel
+          panel={branchPanel}
+          layoutRoot={layoutRoot}
+          onClose={handleCloseBranchPanel}
         />
       )}
 

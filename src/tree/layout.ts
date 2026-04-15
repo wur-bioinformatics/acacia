@@ -1,7 +1,7 @@
-import type { LayoutMode, LayoutNode, TreeNode } from "./types";
+import type { FlatNode, FlatTree, LayoutMode, LayoutNode, NodeId, TreeNode } from "./types";
 
 // ---------------------------------------------------------------------------
-// Newick parsing & serialization
+// Newick parsing
 // ---------------------------------------------------------------------------
 
 export function parseNewick(s: string): TreeNode {
@@ -41,106 +41,130 @@ export function parseNewick(s: string): TreeNode {
 }
 
 // ---------------------------------------------------------------------------
-// Leaf count precomputation (for collapsed-triangle sizing)
+// Flatten parsed tree into a FlatTree (single source of truth)
 // ---------------------------------------------------------------------------
 
-export function computeLeafCounts(root: TreeNode): Map<TreeNode, number> {
-  const counts = new Map<TreeNode, number>();
+// Assigns stable IDs in DFS preorder: "n0" (root), "n1", "n2", …
+// These IDs survive reroots and rotations.
+export function flattenTree(root: TreeNode): FlatTree {
+  const nodes = new Map<NodeId, FlatNode>();
+  const leafOrder: NodeId[] = [];
+  let counter = 0;
 
-  function walk(node: TreeNode): number {
-    if (node.children.length === 0) {
-      counts.set(node, 1);
+  function dfs(node: TreeNode, parentId: NodeId | null): NodeId {
+    const id: NodeId = `n${counter++}`;
+    const childIds: NodeId[] = node.children.map((child) => dfs(child, id));
+    if (childIds.length === 0) leafOrder.push(id);
+    nodes.set(id, { id, name: node.name, length: node.length, parentId, childIds, leafCount: 0 });
+    return id;
+  }
+
+  const rootId = dfs(root, null);
+  computeFlatLeafCounts(nodes, rootId);
+  return { nodes, rootId, originalRootId: rootId, leafOrder };
+}
+
+function computeFlatLeafCounts(nodes: Map<NodeId, FlatNode>, rootId: NodeId): void {
+  function walk(id: NodeId): number {
+    const node = nodes.get(id)!;
+    if (node.childIds.length === 0) {
+      node.leafCount = 1;
       return 1;
     }
-    const total = node.children.reduce((sum, c) => sum + walk(c), 0);
-    counts.set(node, total);
+    const total = node.childIds.reduce((s, cid) => s + walk(cid), 0);
+    node.leafCount = total;
     return total;
   }
-
-  walk(root);
-  return counts;
+  walk(rootId);
 }
 
 // ---------------------------------------------------------------------------
-// Node lookup by path id
+// Reroot on a branch
 // ---------------------------------------------------------------------------
 
-function findNodeByPath(root: TreeNode, id: string): TreeNode | null {
-  if (id === "r") return root;
-  const parts = id.split("-").slice(1); // drop leading "r"
-  let current: TreeNode = root;
-  for (const part of parts) {
-    const idx = parseInt(part, 10);
-    if (idx >= current.children.length) return null;
-    current = current.children[idx];
+// Reroots the tree so the branch leading to targetId becomes the new root.
+// Only clones nodes on the path from targetId to the old root (O(path length)).
+// Non-path nodes are shared by reference. Node count stays constant:
+// the old root node is repurposed as the new virtual root.
+// Preserves originalRootId unchanged.
+export function rerootFlat(tree: FlatTree, targetId: NodeId): FlatTree {
+  const { nodes, rootId } = tree;
+  const target = nodes.get(targetId);
+  if (!target || target.parentId === null) return tree; // already root or not found
+
+  // Collect path from target up to (but not including) root.
+  const path: NodeId[] = [];
+  let cur: NodeId = targetId;
+  while (cur !== rootId) {
+    path.push(cur);
+    const n = nodes.get(cur)!;
+    if (n.parentId === null) break; // shouldn't happen
+    cur = n.parentId;
   }
-  return current;
-}
+  // cur is now rootId (or we broke early)
+  path.push(rootId);
 
-// ---------------------------------------------------------------------------
-// Reroot
-// ---------------------------------------------------------------------------
-
-export function rerootTree(root: TreeNode, targetId: string): TreeNode {
-  if (targetId === "r") return root; // rerooting at the root itself is a no-op
-
-  const targetNode = findNodeByPath(root, targetId);
-  if (!targetNode) return root;
-
-  // Build parent + branch-length maps in one O(n) pass.
-  const parentMap = new Map<TreeNode, TreeNode>();
-  const lengthFromParent = new Map<TreeNode, number>();
-
-  function buildMaps(node: TreeNode) {
-    for (const child of node.children) {
-      parentMap.set(child, node);
-      lengthFromParent.set(child, child.length);
-      buildMaps(child);
-    }
-  }
-  buildMaps(root);
-
-  const targetParent = parentMap.get(targetNode);
-  if (!targetParent) return root; // target is already the root
-
-  const halfLen = targetNode.length / 2;
-
-  // Side A: the subtree at targetNode (branch halved)
-  const sideA: TreeNode = {
-    name: targetNode.name,
-    length: halfLen,
-    children: targetNode.children,
-  };
-
-  // Side B: the rest of the tree, path from targetParent to old root reversed.
-  function invertBranch(node: TreeNode, excludeChild: TreeNode, newLength: number): TreeNode {
-    const keptChildren = node.children.filter((c) => c !== excludeChild);
-    const parent = parentMap.get(node);
-    const newChildren: TreeNode[] = [...keptChildren];
-    if (parent) {
-      newChildren.push(invertBranch(parent, node, lengthFromParent.get(node) ?? 0));
-    }
-    return { name: node.name, length: newLength, children: newChildren };
+  // Clone all nodes on the path (copy-on-write; non-path nodes shared).
+  const newNodes = new Map(nodes);
+  for (const id of path) {
+    const n = nodes.get(id)!;
+    newNodes.set(id, { ...n, childIds: [...n.childIds] });
   }
 
-  const sideB = invertBranch(targetParent, targetNode, halfLen);
+  // Reverse parent/child pointers along the path.
+  // path = [target, p1, p2, ..., oldRoot]
+  const halfLen = newNodes.get(targetId)!.length / 2;
 
-  return { name: "", length: 0, children: [sideA, sideB] };
+  for (let i = 0; i < path.length - 1; i++) {
+    const childId = path[i];
+    const parentId = path[i + 1];
+    const childNode = newNodes.get(childId)!;
+    const parentNode = newNodes.get(parentId)!;
+
+    // Remove childId from parent's children; add parentId to child's children.
+    parentNode.childIds = parentNode.childIds.filter((id) => id !== childId);
+    childNode.childIds = [...childNode.childIds, parentId];
+    // The parent now hangs off the child; give it the length the child used to have.
+    parentNode.length = childNode.length;
+    // Child's length will be set below (only target gets halfLen).
+    childNode.parentId = null; // will be fixed when we set up the new virtual root
+  }
+
+  // Repurpose the old root as the new virtual root between target and its old parent.
+  const targetParentId = path[1]; // was the parent of target before reroot
+  const oldRootNode = newNodes.get(rootId)!;
+  const targetNode = newNodes.get(targetId)!;
+
+  // New virtual root: two children = [target, targetParent]
+  oldRootNode.name = "";
+  oldRootNode.length = 0;
+  oldRootNode.parentId = null;
+  oldRootNode.childIds = [targetId, targetParentId];
+
+  // target gets halfLen, old parent (now a child of root) keeps the other half
+  targetNode.length = halfLen;
+  targetNode.parentId = rootId;
+  newNodes.get(targetParentId)!.length = halfLen;
+  newNodes.get(targetParentId)!.parentId = rootId;
+
+  // Recompute leafCount bottom-up (unavoidable after reroot).
+  computeFlatLeafCounts(newNodes, rootId);
+
+  return { nodes: newNodes, rootId, originalRootId: tree.originalRootId, leafOrder: tree.leafOrder };
 }
 
 // ---------------------------------------------------------------------------
 // Rotate (reverse children of one node)
 // ---------------------------------------------------------------------------
 
-export function rotateNode(root: TreeNode, targetId: string): TreeNode {
-  function copy(node: TreeNode, currentId: string): TreeNode {
-    const children = node.children.map((c, i) => copy(c, `${currentId}-${i}`));
-    if (currentId === targetId) {
-      return { name: node.name, length: node.length, children: [...children].reverse() };
-    }
-    return { name: node.name, length: node.length, children };
-  }
-  return copy(root, "r");
+// Clones only the target node; all other nodes are shared. O(1) work.
+// No ID remapping needed — IDs are stable.
+export function rotateFlat(tree: FlatTree, targetId: NodeId): FlatTree {
+  const target = tree.nodes.get(targetId);
+  if (!target) return tree;
+  const newNodes = new Map(tree.nodes);
+  newNodes.set(targetId, { ...target, childIds: [...target.childIds].reverse() });
+  return { ...tree, nodes: newNodes };
 }
 
 // ---------------------------------------------------------------------------
@@ -158,30 +182,34 @@ export type LayoutResult = {
 // ---------------------------------------------------------------------------
 
 export function buildRectLayout(
-  root: TreeNode,
+  flatNodes: Map<NodeId, FlatNode>,
+  rootId: NodeId,
   yStep: number,
-  collapsedNodes: ReadonlySet<string>,
-  leafCounts: Map<TreeNode, number>,
+  collapsedNodes: ReadonlySet<NodeId>,
 ): LayoutResult {
   let leafIdx = 0;
   let maxDepth = 0;
 
-  function build(node: TreeNode, depth: number, id: string): LayoutNode {
-    const lc = leafCounts.get(node) ?? 1;
+  function build(id: NodeId, depth: number): LayoutNode {
+    const flatNode = flatNodes.get(id)!;
+    const lc = flatNode.leafCount;
 
-    if (collapsedNodes.has(id) || node.children.length === 0) {
+    if (collapsedNodes.has(id) || flatNode.childIds.length === 0) {
       const y = leafIdx++ * yStep;
       if (depth > maxDepth) maxDepth = depth;
-      return { node, id, x: depth, y, children: [], leafCount: lc };
+      return { node: { name: flatNode.name, length: flatNode.length, children: [] }, id, x: depth, y, children: [], leafCount: lc };
     }
 
-    const children = node.children.map((c, i) => build(c, depth + c.length, `${id}-${i}`));
+    const children = flatNode.childIds.map((cid) => {
+      const child = flatNodes.get(cid)!;
+      return build(cid, depth + child.length);
+    });
     const y = (children[0].y + children[children.length - 1].y) / 2;
 
-    return { node, id, x: depth, y, children, leafCount: lc };
+    return { node: { name: flatNode.name, length: flatNode.length, children: [] }, id, x: depth, y, children, leafCount: lc };
   }
 
-  const layoutRoot = build(root, 0, "r");
+  const layoutRoot = build(rootId, 0);
   return { root: layoutRoot, nLeaves: leafIdx, maxDepth };
 }
 
@@ -190,44 +218,46 @@ export function buildRectLayout(
 // ---------------------------------------------------------------------------
 
 export function buildCladogramLayout(
-  root: TreeNode,
+  flatNodes: Map<NodeId, FlatNode>,
+  rootId: NodeId,
   yStep: number,
-  collapsedNodes: ReadonlySet<string>,
-  leafCounts: Map<TreeNode, number>,
+  collapsedNodes: ReadonlySet<NodeId>,
 ): LayoutResult {
   // Precompute hops from each node to its farthest descendant leaf.
-  const hopMap = new Map<TreeNode, number>();
+  const hopMap = new Map<NodeId, number>();
 
-  function precompute(node: TreeNode): number {
-    if (node.children.length === 0) {
-      hopMap.set(node, 0);
+  function precompute(id: NodeId): number {
+    const node = flatNodes.get(id)!;
+    if (node.childIds.length === 0) {
+      hopMap.set(id, 0);
       return 0;
     }
-    const h = 1 + Math.max(...node.children.map(precompute));
-    hopMap.set(node, h);
+    const h = 1 + Math.max(...node.childIds.map(precompute));
+    hopMap.set(id, h);
     return h;
   }
 
-  const maxHops = precompute(root);
+  const maxHops = precompute(rootId);
   let leafIdx = 0;
 
-  function build(node: TreeNode, id: string): LayoutNode {
-    const lc = leafCounts.get(node) ?? 1;
-    const hops = hopMap.get(node) ?? 0;
+  function build(id: NodeId): LayoutNode {
+    const flatNode = flatNodes.get(id)!;
+    const lc = flatNode.leafCount;
+    const hops = hopMap.get(id) ?? 0;
     const x = maxHops - hops; // leaves have x = maxHops, root has x = 0
 
-    if (collapsedNodes.has(id) || node.children.length === 0) {
+    if (collapsedNodes.has(id) || flatNode.childIds.length === 0) {
       const y = leafIdx++ * yStep;
-      return { node, id, x, y, children: [], leafCount: lc };
+      return { node: { name: flatNode.name, length: flatNode.length, children: [] }, id, x, y, children: [], leafCount: lc };
     }
 
-    const children = node.children.map((c, i) => build(c, `${id}-${i}`));
+    const children = flatNode.childIds.map((cid) => build(cid));
     const y = (children[0].y + children[children.length - 1].y) / 2;
 
-    return { node, id, x, y, children, leafCount: lc };
+    return { node: { name: flatNode.name, length: flatNode.length, children: [] }, id, x, y, children, leafCount: lc };
   }
 
-  const layoutRoot = build(root, "r");
+  const layoutRoot = build(rootId);
   return { root: layoutRoot, nLeaves: leafIdx, maxDepth: maxHops };
 }
 
@@ -236,50 +266,57 @@ export function buildCladogramLayout(
 // ---------------------------------------------------------------------------
 
 export function buildRadialLayout(
-  root: TreeNode,
+  flatNodes: Map<NodeId, FlatNode>,
+  rootId: NodeId,
   maxRadius: number,
-  collapsedNodes: ReadonlySet<string>,
-  leafCounts: Map<TreeNode, number>,
+  collapsedNodes: ReadonlySet<NodeId>,
 ): LayoutResult {
   // Compute max cumulative branch depth for radius scaling.
-  function maxBranchDepth(node: TreeNode, depth: number): number {
-    if (node.children.length === 0) return depth;
-    return Math.max(...node.children.map((c) => maxBranchDepth(c, depth + c.length)));
+  function maxBranchDepth(id: NodeId, depth: number): number {
+    const node = flatNodes.get(id)!;
+    if (node.childIds.length === 0) return depth;
+    return Math.max(...node.childIds.map((cid) => {
+      const child = flatNodes.get(cid)!;
+      return maxBranchDepth(cid, depth + child.length);
+    }));
   }
-  const maxDepth = maxBranchDepth(root, 0);
+  const maxDepth = maxBranchDepth(rootId, 0);
 
   // Count total rendered leaves (respecting collapsed nodes).
-  function countVisible(node: TreeNode, id: string): number {
-    if (node.children.length === 0 || collapsedNodes.has(id)) return 1;
-    return node.children.reduce((s, c, i) => s + countVisible(c, `${id}-${i}`), 0);
+  function countVisible(id: NodeId): number {
+    const node = flatNodes.get(id)!;
+    if (node.childIds.length === 0 || collapsedNodes.has(id)) return 1;
+    return node.childIds.reduce((s, cid) => s + countVisible(cid), 0);
   }
-  const totalLeaves = countVisible(root, "r");
+  const totalLeaves = countVisible(rootId);
   const angleStep = (2 * Math.PI) / totalLeaves;
 
   let leafIdx = 0;
 
-  function build(node: TreeNode, depth: number, id: string): LayoutNode {
-    const lc = leafCounts.get(node) ?? 1;
+  function build(id: NodeId, depth: number): LayoutNode {
+    const flatNode = flatNodes.get(id)!;
+    const lc = flatNode.leafCount;
     const r = maxDepth > 0 ? (depth / maxDepth) * maxRadius : 0;
 
-    if (collapsedNodes.has(id) || node.children.length === 0) {
+    if (collapsedNodes.has(id) || flatNode.childIds.length === 0) {
       const angle = leafIdx * angleStep;
       leafIdx++;
-      return { node, id, x: r, y: 0, angle, children: [], leafCount: lc };
+      return { node: { name: flatNode.name, length: flatNode.length, children: [] }, id, x: r, y: 0, angle, children: [], leafCount: lc };
     }
 
-    const children = node.children.map((c, i) =>
-      build(c, depth + c.length, `${id}-${i}`),
-    );
+    const children = flatNode.childIds.map((cid) => {
+      const child = flatNodes.get(cid)!;
+      return build(cid, depth + child.length);
+    });
 
     const firstAngle = children[0].angle ?? 0;
     const lastAngle = children[children.length - 1].angle ?? 0;
     const angle = (firstAngle + lastAngle) / 2;
 
-    return { node, id, x: r, y: 0, angle, children, leafCount: lc };
+    return { node: { name: flatNode.name, length: flatNode.length, children: [] }, id, x: r, y: 0, angle, children, leafCount: lc };
   }
 
-  const layoutRoot = build(root, 0, "r");
+  const layoutRoot = build(rootId, 0);
   return { root: layoutRoot, nLeaves: leafIdx, maxDepth };
 }
 
@@ -288,20 +325,19 @@ export function buildRadialLayout(
 // ---------------------------------------------------------------------------
 
 export function buildLayout(
-  root: TreeNode,
+  tree: FlatTree,
   mode: LayoutMode,
   yStep: number,
   maxRadius: number,
-  collapsedNodes: ReadonlySet<string>,
-  leafCounts: Map<TreeNode, number>,
+  collapsedNodes: ReadonlySet<NodeId>,
 ): LayoutResult {
   switch (mode) {
     case "rectangular":
-      return buildRectLayout(root, yStep, collapsedNodes, leafCounts);
+      return buildRectLayout(tree.nodes, tree.rootId, yStep, collapsedNodes);
     case "cladogram":
-      return buildCladogramLayout(root, yStep, collapsedNodes, leafCounts);
+      return buildCladogramLayout(tree.nodes, tree.rootId, yStep, collapsedNodes);
     case "radial":
-      return buildRadialLayout(root, maxRadius, collapsedNodes, leafCounts);
+      return buildRadialLayout(tree.nodes, tree.rootId, maxRadius, collapsedNodes);
   }
 }
 

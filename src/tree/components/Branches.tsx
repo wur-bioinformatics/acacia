@@ -1,9 +1,21 @@
 import type { JSX } from "react";
 import { truncate } from "../layout";
-import type { BranchesProps, LayoutNode, RadialGeomProps, RectGeomProps } from "../types";
+import type {
+  BranchesProps,
+  LayoutNode,
+  RadialGeomProps,
+  RectGeomProps,
+} from "../types";
 import { useTreeStore } from "../treeStore";
-import { RADIAL_LABEL_GAP, Y_STEP } from "../constants";
+import { RADIAL_LABEL_GAP } from "../constants";
 import NodeCircle from "./NodeCircle";
+
+// Branch style key: stable for leaf branches, path-based for internal branches
+function branchKey(node: LayoutNode): string {
+  return node.children.length === 0
+    ? `branch:leaf:${node.node.name}`
+    : `branch:${node.id}`;
+}
 
 // ---------------------------------------------------------------------------
 // Geometry helpers
@@ -15,7 +27,13 @@ function toCartesian(r: number, angle: number, cx: number, cy: number): Point {
   return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
 }
 
-function arcPath(cx: number, cy: number, r: number, startAngle: number, endAngle: number): string {
+function arcPath(
+  cx: number,
+  cy: number,
+  r: number,
+  startAngle: number,
+  endAngle: number,
+): string {
   const p1 = toCartesian(r, startAngle, cx, cy);
   const p2 = toCartesian(r, endAngle, cx, cy);
   const largeArc = Math.abs(endAngle - startAngle) > Math.PI ? 1 : 0;
@@ -30,10 +48,19 @@ type Geometry = {
   nodePos: Point;
   parentPos: Point;
   childConnector: (node: LayoutNode, col: string) => JSX.Element | null;
-  collapseTriangle: (node: LayoutNode, nodePos: Point, fillCol: string) => JSX.Element;
-  leafLabel: (node: LayoutNode, nodePos: Point, color: string, fontWeight: string) => JSX.Element;
-  bootstrapPos: () => Point;
-  childGeomProps: () => RectGeomProps | RadialGeomProps;
+  collapseTriangle: (
+    node: LayoutNode,
+    nodePos: Point,
+    fillCol: string,
+  ) => JSX.Element;
+  leafLabel: (
+    node: LayoutNode,
+    nodePos: Point,
+    color: string,
+    fontWeight: string,
+  ) => JSX.Element;
+  bootstrapPos: (pos: Point) => Point;
+  childGeomProps: (node: LayoutNode) => RectGeomProps | RadialGeomProps;
 };
 
 function rectGeometry(props: BranchesProps & RectGeomProps): Geometry {
@@ -61,7 +88,8 @@ function rectGeometry(props: BranchesProps & RectGeomProps): Geometry {
       );
     },
     collapseTriangle: (n, nPos, fillCol) => {
-      const triHeight = Math.max(Y_STEP * 2, n.leafCount * (Y_STEP / 3));
+      const { yStep } = useTreeStore.getState();
+      const triHeight = Math.max(yStep * 0.75, n.leafCount * (yStep / 12));
       return (
         <polygon
           key={`tri-${n.id}`}
@@ -86,8 +114,13 @@ function rectGeometry(props: BranchesProps & RectGeomProps): Geometry {
         {truncate(n.node.name)}
       </text>
     ),
-    bootstrapPos: (nPos) => ({ x: nPos.x + 3, y: nPos.y - 3 }),
-    childGeomProps: () => ({ mode: "rect", parentX: node.x, xScale, treeWidth }),
+    bootstrapPos: (nPos: Point): Point => ({ x: nPos.x + 4.5, y: nPos.y + 3 }),
+    childGeomProps: () => ({
+      mode: "rect",
+      parentX: node.x,
+      xScale,
+      treeWidth,
+    }),
   };
 }
 
@@ -152,13 +185,14 @@ function radialGeometry(props: BranchesProps & RadialGeomProps): Geometry {
         </text>
       );
     },
-    bootstrapPos: () => toCartesian(r + 6, angle, cx, cy),
+    bootstrapPos: () => toCartesian(r + 12, angle, cx, cy),
     childGeomProps: () => ({ mode: "radial", parentR: r, cx, cy, maxRadius }),
   };
 }
 
 function computeGeometry(props: BranchesProps): Geometry {
-  if (props.mode === "rect") return rectGeometry(props as BranchesProps & RectGeomProps);
+  if (props.mode === "rect")
+    return rectGeometry(props as BranchesProps & RectGeomProps);
   return radialGeometry(props as BranchesProps & RadialGeomProps);
 }
 
@@ -167,25 +201,25 @@ function computeGeometry(props: BranchesProps): Geometry {
 // ---------------------------------------------------------------------------
 
 export default function Branches(props: BranchesProps): JSX.Element {
-  const { node, isRoot, onNodeClick, didDragRef } = props;
+  const { node, isRoot, onNodeClick, onBranchClick, didDragRef } = props;
 
   const isLeaf = node.children.length === 0;
   const styleKey = isLeaf ? `leaf:${node.node.name}` : node.id;
   const styleColor = useTreeStore((s) => s.nodeStyles.get(styleKey)?.color);
   const styleBold = useTreeStore((s) => s.nodeStyles.get(styleKey)?.labelBold);
+  const branchStyleColor = useTreeStore((s) => s.branchStyles.get(branchKey(node))?.color);
   const isCollapsed = useTreeStore((s) => s.collapsedNodes.has(node.id));
   const isSelected = useTreeStore((s) => s.selectedNodeId === node.id);
   const showBootstrap = useTreeStore((s) => s.showBootstrap);
-  const rerootOnBranch = useTreeStore((s) => s.rerootOnBranch);
+  const yStep = useTreeStore((s) => s.yStep);
 
-  const branchCol = styleColor ?? "#333";
+  const branchCol = branchStyleColor ?? styleColor ?? "#333";
   const labelColor = styleColor ?? "#111";
   const fontWeight = styleBold ? "bold" : "normal";
 
   const geom = computeGeometry(props);
   const { nodePos, parentPos } = geom;
 
-  const showCollapse = isCollapsed || isLeaf;
   const fillCol = styleColor ?? "#999";
 
   // Rect mode: extension line to label for uncollapsed leaves
@@ -207,7 +241,7 @@ export default function Branches(props: BranchesProps): JSX.Element {
           fontWeight={fontWeight}
           fontStyle="italic"
         >
-          {node.leafCount} taxa
+          {node.leafCount} sequences
         </text>
       );
     }
@@ -262,11 +296,11 @@ export default function Branches(props: BranchesProps): JSX.Element {
             y2={nodePos.y}
             stroke="transparent"
             strokeWidth={8}
-            style={{ cursor: "crosshair" }}
+            style={{ cursor: "pointer" }}
             onClick={(e) => {
               if (didDragRef.current) return;
               e.stopPropagation();
-              rerootOnBranch(node.id);
+              onBranchClick(node, e);
             }}
           />
           <line
@@ -280,8 +314,8 @@ export default function Branches(props: BranchesProps): JSX.Element {
           />
         </>
       )}
-      {!showCollapse && geom.childConnector(node, branchCol)}
-      {!showCollapse && showBootstrap && node.node.name && !isRoot && (
+      {!isCollapsed && geom.childConnector(node, branchCol)}
+      {!isCollapsed && showBootstrap && node.node.name && !isRoot && (
         <text
           key={`bs-${node.id}`}
           x={bootstrapPos.x}
@@ -293,19 +327,23 @@ export default function Branches(props: BranchesProps): JSX.Element {
           {node.node.name}
         </text>
       )}
-      {!showCollapse &&
+      {!isCollapsed &&
         node.children.map((child) => (
           <Branches
             key={child.id}
             node={child}
             isRoot={false}
             onNodeClick={onNodeClick}
+            onBranchClick={onBranchClick}
             didDragRef={didDragRef}
             {...geom.childGeomProps(child)}
           />
         ))}
-      {showCollapse && geom.collapseTriangle(node, nodePos, fillCol)}
-      {showCollapse && (isCollapsed ? collapseLabel : geom.leafLabel(node, nodePos, labelColor, fontWeight))}
+      {isCollapsed && geom.collapseTriangle(node, nodePos, fillCol)}
+      {isCollapsed &&
+        (isCollapsed
+          ? collapseLabel
+          : geom.leafLabel(node, nodePos, labelColor, fontWeight))}
       {showExtLine && (
         <line
           key={`ext-${node.id}`}

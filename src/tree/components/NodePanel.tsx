@@ -3,8 +3,6 @@ import type { JSX } from "react";
 import {
   findLayoutNode,
   getSubtreeNodes,
-  rerootTree,
-  rotateNode,
 } from "../layout";
 import type { LayoutNode } from "../types";
 import { useTreeStore } from "../treeStore";
@@ -32,41 +30,37 @@ export default function NodePanel({
     toggleCollapse,
     setNodeStyle,
     clearNodeStyle,
-    setRoot,
-    root,
+    rerootOnBranch,
+    rotateNode,
   } = useTreeStore();
   const ref = useRef<HTMLDivElement>(null);
 
-  const styleKey = panel.isLeaf ? `leaf:${panel.leafName ?? panel.id}` : panel.id;
+  const styleKey = panel.isLeaf
+    ? `leaf:${panel.leafName ?? panel.id}`
+    : panel.id;
   const isCollapsed = collapsedNodes.has(panel.id);
   const currentStyle = nodeStyles.get(styleKey);
   const currentColor = currentStyle?.color ?? "#111111";
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    const el = ref.current;
+    if (!el) return;
+    if (!el.matches(":popover-open")) el.showPopover();
+    const onToggle = (e: Event) => {
+      if ((e as ToggleEvent).newState === "closed") onClose();
     };
-    const onOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("mousedown", onOutside);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onOutside);
-    };
+    el.addEventListener("toggle", onToggle);
+    return () => el.removeEventListener("toggle", onToggle);
   }, [onClose]);
 
   const handleReroot = () => {
-    if (!root) return;
-    setRoot(rerootTree(root, panel.id));
-    onClose();
+    rerootOnBranch(panel.id);
+    ref.current?.hidePopover();
   };
 
   const handleRotate = () => {
-    if (!root) return;
-    setRoot(rotateNode(root, panel.id));
-    onClose();
+    rotateNode(panel.id);
+    ref.current?.hidePopover();
   };
 
   const handleColorClade = (color: string) => {
@@ -85,77 +79,104 @@ export default function NodePanel({
       const key = n.children.length === 0 ? `leaf:${n.node.name}` : n.id;
       clearNodeStyle(key);
     }
-    onClose();
-  };
-
-  const panelStyle: React.CSSProperties = {
-    position: "fixed",
-    left: panel.x + 8,
-    top: panel.y + 8,
-    zIndex: 50,
+    ref.current?.hidePopover();
   };
 
   return (
     <div
       ref={ref}
-      style={panelStyle}
-      className="bg-base-100 rounded-box shadow-lg border border-base-300 p-2 flex flex-col gap-1 text-sm min-w-max"
+      popover="auto"
+      style={{
+        position: "fixed",
+        inset: "unset",
+        left: panel.x + 8,
+        top: panel.y + 8,
+        margin: 0,
+      }}
+      className="menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-300 min-w-max p-2"
     >
+      <li>
+        <button onClick={handleReroot}>Reroot here</button>
+      </li>
       {!panel.isLeaf && (
         <>
-          <button className="btn btn-xs btn-ghost justify-start" onClick={handleReroot}>
-            Reroot here
-          </button>
-          <button
-            className="btn btn-xs btn-ghost justify-start"
-            onClick={() => { toggleCollapse(panel.id); onClose(); }}
-          >
-            {isCollapsed ? "Expand clade" : "Collapse clade"}
-          </button>
-          <button className="btn btn-xs btn-ghost justify-start" onClick={handleRotate}>
-            Rotate children
-          </button>
-          <label className="btn btn-xs btn-ghost justify-start cursor-pointer">
-            Color clade…
-            <input
-              type="color"
-              className="sr-only"
-              value={currentColor}
-              onChange={(e) => handleColorClade(e.target.value)}
-            />
-          </label>
-          <hr className="border-base-300" />
+          <li>
+            <button onClick={handleRotate}>Rotate children</button>
+          </li>
+          <li>
+            <label>
+              Color clade…
+              <input
+                type="color"
+                colorspace="display-p3"
+                className="sr-only"
+                value={currentColor}
+                onChange={(e) => handleColorClade(e.target.value)}
+              />
+            </label>
+          </li>
         </>
       )}
-      <label className="btn btn-xs btn-ghost justify-start cursor-pointer">
-        Color {panel.isLeaf ? "leaf" : "node"}…
-        <input
-          type="color"
-          className="sr-only"
-          value={currentColor}
-          onChange={(e) => setNodeStyle(styleKey, { color: e.target.value })}
-        />
-      </label>
-      <button
-        className="btn btn-xs btn-ghost justify-start"
-        onClick={() => setNodeStyle(styleKey, { labelBold: !(currentStyle?.labelBold ?? false) })}
-      >
-        {currentStyle?.labelBold ? "Normal label" : "Bold label"}
-      </button>
-      <button
-        className="btn btn-xs btn-ghost justify-start"
-        onClick={() => { clearNodeStyle(styleKey); onClose(); }}
-      >
-        Clear style
-      </button>
-      {!panel.isLeaf && (
-        <button className="btn btn-xs btn-ghost justify-start" onClick={handleClearClade}>
-          Clear clade styles
-        </button>
+      {(!panel.isLeaf || isCollapsed) && (
+        <>
+          <li>
+            <button
+              onClick={() => {
+                toggleCollapse(panel.id);
+                ref.current?.hidePopover();
+              }}
+            >
+              {isCollapsed ? "Expand clade" : "Collapse clade"}
+            </button>
+          </li>
+        </>
       )}
-      <button className="btn btn-xs btn-ghost justify-start opacity-50" onClick={onClose}>
-        ✕ Close
-      </button>
+      <li>
+        <label>
+          Color {panel.isLeaf ? "leaf" : "node"}…
+          <input
+            type="color"
+            colorspace="display-p3"
+            className="sr-only"
+            value={currentColor}
+            onChange={(e) => setNodeStyle(styleKey, { color: e.target.value })}
+          />
+        </label>
+      </li>
+      <li>
+        <button
+          onClick={() =>
+            setNodeStyle(styleKey, {
+              labelBold: !(currentStyle?.labelBold ?? false),
+            })
+          }
+        >
+          {currentStyle?.labelBold ? "Normal label" : "Bold label"}
+        </button>
+      </li>
+      <li>
+        <button
+          onClick={() => {
+            clearNodeStyle(styleKey);
+            ref.current?.hidePopover();
+          }}
+        >
+          Clear style
+        </button>
+      </li>
+      {!panel.isLeaf && (
+        <li>
+          <button onClick={handleClearClade}>Clear clade styles</button>
+        </li>
+      )}
+      <li>
+        <button
+          className="opacity-50"
+          onClick={() => ref.current?.hidePopover()}
+        >
+          ✕ Close
+        </button>
+      </li>
     </div>
   );
 }

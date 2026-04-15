@@ -4,15 +4,19 @@ import type { LayoutMode } from "../types";
 import { useTreeStore } from "../treeStore";
 
 export default function TreeToolbar(): JSX.Element {
+  const isAtOriginalRoot = useTreeStore((s) => s.flatTree?.rootId === s.flatTree?.originalRootId);
   const {
     layoutMode,
-    originalRoot,
-    root,
     showBootstrap,
+    yStep,
+    widthScale,
     setLayoutMode,
-    resetView,
+    resetZoom,
+    resetStyles,
     resetRoot,
     setShowBootstrap,
+    setYStep,
+    setWidthScale,
   } = useTreeStore();
   const [openMenu, setOpenMenu] = useState<"view" | null>(null);
   const ref = useRef<HTMLUListElement>(null);
@@ -34,9 +38,16 @@ export default function TreeToolbar(): JSX.Element {
   ];
 
   return (
-    <ul ref={ref} className="menu menu-sm menu-horizontal bg-base-200 rounded-box z-20">
+    <ul
+      ref={ref}
+      className="menu menu-sm menu-horizontal bg-base-200 rounded-box z-20"
+    >
       <li className="relative">
-        <button onClick={() => setOpenMenu((prev) => (prev === "view" ? null : "view"))}>
+        <button
+          onClick={() =>
+            setOpenMenu((prev) => (prev === "view" ? null : "view"))
+          }
+        >
           View
         </button>
         {openMenu === "view" && (
@@ -52,7 +63,10 @@ export default function TreeToolbar(): JSX.Element {
                         className="radio radio-xs"
                         name="treeLayout"
                         checked={layoutMode === value}
-                        onChange={() => { setLayoutMode(value); setOpenMenu(null); }}
+                        onChange={() => {
+                          setLayoutMode(value);
+                          setOpenMenu(null);
+                        }}
                       />
                       {label}
                     </label>
@@ -71,16 +85,47 @@ export default function TreeToolbar(): JSX.Element {
                 />
               </label>
             </li>
+            <li className="menu-title pt-2">Row height</li>
+            <li className="px-2">
+              <input
+                type="range"
+                className="range range-xs w-36"
+                min={10}
+                max={60}
+                step={1}
+                value={yStep}
+                onChange={(e) => setYStep(Number(e.target.value))}
+              />
+            </li>
+            <li className="menu-title pt-2">Tree width</li>
+            <li className="px-2">
+              <input
+                type="range"
+                className="range range-xs w-36"
+                min={0.3}
+                max={3}
+                step={0.05}
+                value={widthScale}
+                onChange={(e) => setWidthScale(Number(e.target.value))}
+              />
+            </li>
+            <li>
+              <button className="w-full text-left" onClick={resetZoom}>
+                Reset zoom
+              </button>
+            </li>
+            <li>
+              <button className="w-full text-left" onClick={resetStyles}>
+                Reset styles
+              </button>
+            </li>
           </ul>
         )}
       </li>
       <li>
-        <button onClick={resetView}>Reset view</button>
-      </li>
-      <li>
         <button
           onClick={resetRoot}
-          disabled={root === originalRoot}
+          disabled={isAtOriginalRoot}
           className="disabled:opacity-40"
         >
           Reset root

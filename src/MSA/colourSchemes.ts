@@ -1,4 +1,4 @@
-import type { ColorStyle, MSAColumnAnalysis } from "./types";
+import type { ColorStyle, MSAColumnAnalysis, MSAData, SequenceType } from "./types";
 
 // DNA – default ACGT
 export const dnaColorMap = new Map([
@@ -72,14 +72,31 @@ export const aaTaylor = new Map([
   ["-", "#f4f4f4"],
 ]);
 
-export const COLOR_SCHEME_GROUPS: { label: string; schemes: ColorStyle[] }[] = [
-  { label: "DNA", schemes: ["DNA", "DNA ClustalX"] },
-  { label: "Amino Acid", schemes: ["AA ClustalX", "AA Zappo", "AA Taylor"] },
-  {
-    label: "Analysis",
-    schemes: ["Parsimony Informative", "Conserved", "Variable"],
-  },
+export const COLOR_SCHEME_GROUPS: {
+  label: string;
+  schemes: ColorStyle[];
+  type: SequenceType | null;
+}[] = [
+  { label: "DNA", schemes: ["DNA", "DNA ClustalX"], type: "DNA" },
+  { label: "Amino Acid", schemes: ["AA ClustalX", "AA Zappo", "AA Taylor"], type: "Protein" },
+  { label: "Analysis", schemes: ["Parsimony Informative", "Conserved", "Variable"], type: null },
 ];
+
+export const DEFAULT_COLOR_SCHEME: Record<SequenceType, ColorStyle> = {
+  DNA: "DNA",
+  Protein: "AA ClustalX",
+};
+
+/** Detects sequence type by looking for amino-acid-only characters. */
+export function detectSequenceType(msaData: MSAData): SequenceType {
+  const proteinOnly = new Set(["E", "F", "I", "L", "P", "Q"]);
+  for (const seq of msaData) {
+    for (const char of seq.sequence) {
+      if (proteinOnly.has(char.toUpperCase())) return "Protein";
+    }
+  }
+  return "DNA";
+}
 
 const HIGHLIGHT_COLOR = "royalblue";
 const UNKNOWN_COLOR = "#cccccc";

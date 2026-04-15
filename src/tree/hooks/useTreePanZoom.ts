@@ -18,6 +18,7 @@ import { useTreeStore } from "../treeStore";
  */
 export default function useTreePanZoom(
   svgRef: React.RefObject<SVGSVGElement | null>,
+  ready: boolean,
 ): React.RefObject<boolean> {
   const isDragging = useRef(false);
   const didDrag = useRef(false);
@@ -70,7 +71,7 @@ export default function useTreePanZoom(
     };
 
     const onDblClick = () => {
-      useTreeStore.getState().resetView();
+      useTreeStore.getState().resetZoom();
     };
 
     const onTouchStart = (e: TouchEvent) => {
@@ -140,7 +141,7 @@ export default function useTreePanZoom(
       svg.removeEventListener("touchmove", onTouchMove);
       svg.removeEventListener("touchend", onTouchEnd);
     };
-  }, [svgRef]);
+  }, [svgRef, ready]);
 
   return didDrag;
 }

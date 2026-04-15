@@ -1,11 +1,13 @@
 import { create } from "zustand";
-import type { DrawOptions } from "../types";
+import type { DrawOptions, SequenceType } from "../types";
 
 type DrawState = {
   drawOptions: DrawOptions;
+  sequenceTypeOverride: SequenceType | null;
   setDrawOptions: (
     opts: Partial<DrawOptions> | ((prev: DrawOptions) => Partial<DrawOptions>)
   ) => void;
+  setSequenceTypeOverride: (type: SequenceType | null) => void;
 };
 
 export const useDrawStore = create<DrawState>((set) => ({
@@ -20,7 +22,10 @@ export const useDrawStore = create<DrawState>((set) => ({
     cellSize: 16,
     colorStyle: "DNA",
     isConservation: false,
+    highlightPattern: "",
+    highlightUseRegex: false,
   },
+  sequenceTypeOverride: null,
   setDrawOptions: (options) =>
     set((state) => ({
       drawOptions:
@@ -28,4 +33,5 @@ export const useDrawStore = create<DrawState>((set) => ({
           ? { ...state.drawOptions, ...options(state.drawOptions) }
           : { ...state.drawOptions, ...options },
     })),
+  setSequenceTypeOverride: (sequenceTypeOverride) => set({ sequenceTypeOverride }),
 }));

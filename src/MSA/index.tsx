@@ -1,10 +1,12 @@
 import { useMemo, type JSX } from "react";
+import { useSequenceStore } from "../sequenceStore";
 
 import "./styles.css";
 
 import { parseFasta, readTextFile } from "./utils/fasta";
 import { CELL_SIZE, MINIMAP_HEIGHT } from "./constants";
 
+import type { MSAData } from "./types";
 import { useDrawStore } from "./stores/drawStore";
 import { useMSAStore } from "./stores/msaStore";
 import usePanZoom from "./hooks/usePanZoom";
@@ -24,11 +26,12 @@ import { CanvasProvider } from "./context/CanvasContext";
 function MSACanvas({
   isMinimap = false,
   width,
+  msaData,
 }: {
   isMinimap?: boolean;
   width: number;
+  msaData: MSAData;
 }): JSX.Element {
-  const { msaData } = useMSAStore();
   const { drawOptions } = useDrawStore();
   const { canvasRef, overlayRef } = useCanvasRefs({ isMinimap });
   const { showConsensus } = drawOptions;
@@ -136,11 +139,19 @@ function MSAInput() {
 
 function MSAInner(): JSX.Element {
   const { msaData } = useMSAStore();
+  const { order } = useSequenceStore();
   const { status: njStatus, progress } = useNJStore();
-  const nRows = msaData.length;
-  const nCols = msaData[0]?.sequence.length ?? 0;
-  const { drawOptions: { showLabels, offsetY, colorStyle } } = useDrawStore();
-  const analysis = useMemo(() => msaData.length > 0 ? analyseMSAColumns(msaData) : null, [msaData]);
+  const { drawOptions: { showLabels, showConsensus, offsetY, colorStyle } } = useDrawStore();
+
+  const orderedMsaData = useMemo<MSAData>(() => {
+    if (order.length === 0) return msaData;
+    const byId = new Map(msaData.map((s) => [s.identifier, s]));
+    return order.map((id) => byId.get(id)).filter((s) => s !== undefined) as MSAData;
+  }, [order, msaData]);
+
+  const nRows = orderedMsaData.length;
+  const nCols = orderedMsaData[0]?.sequence.length ?? 0;
+  const analysis = useMemo(() => orderedMsaData.length > 0 ? analyseMSAColumns(orderedMsaData) : null, [orderedMsaData]);
 
   usePanZoom({ nRows, nCols });
 
@@ -172,15 +183,15 @@ function MSAInner(): JSX.Element {
                 flexShrink: 0,
               }}
             />
-            <MSACanvas isMinimap width={canvasWidth} />
+            <MSACanvas isMinimap width={canvasWidth} msaData={orderedMsaData} />
           </div>
 
           {/* Main canvas with labels */}
           <div className="flex">
             {showLabels && (
               <MSALabels
-                msaData={msaData}
-                showConsensus={false}
+                msaData={orderedMsaData}
+                showConsensus={showConsensus}
                 offsetY={offsetY}
                 width={labelWidth}
               />
@@ -202,7 +213,7 @@ function MSAInner(): JSX.Element {
                 <div className="w-px h-full bg-base-300 group-hover:bg-primary transition-colors" />
               </div>
             )}
-            <MSACanvas width={canvasWidth} />
+            <MSACanvas width={canvasWidth} msaData={orderedMsaData} />
           </div>
 
           {/* Status bar */}

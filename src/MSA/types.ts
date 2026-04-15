@@ -1,3 +1,5 @@
+export type SequenceType = "DNA" | "Protein";
+
 export const COLORSTYLES = [
   "DNA",
   "DNA ClustalX",
@@ -21,6 +23,8 @@ export type DrawOptions = {
   offsetY: number;
   colorStyle: ColorStyle;
   isConservation: boolean;
+  highlightPattern: string;
+  highlightUseRegex: boolean;
 };
 
 export type SeqObject = {

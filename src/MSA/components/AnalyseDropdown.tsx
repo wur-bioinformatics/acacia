@@ -19,11 +19,27 @@ const SUBSTITUTION_MODELS: SubstitutionModelOption[] = [
   { value: "Poisson", label: "Poisson", description: "protein only" },
 ];
 
-type RunNJ = (options: NJOptions) => Promise<{ newick: string; distanceMatrix: DistanceResult; avgDistance: number }>;
+type RunNJ = (options: NJOptions) => Promise<{
+  newick: string;
+  distanceMatrix: DistanceResult;
+  avgDistance: number;
+}>;
 
-export default function AnalyseDropdown({ onClose, runNJ }: { onClose: () => void; runNJ: RunNJ }): JSX.Element {
+export default function AnalyseDropdown({
+  id,
+  runNJ,
+}: {
+  id: string;
+  runNJ: RunNJ;
+}): JSX.Element {
   const { msaData } = useMSAStore();
-  const { status: njStatus, setRunning, setResult, setError, setProgress } = useNJStore();
+  const {
+    status: njStatus,
+    setRunning,
+    setResult,
+    setError,
+    setProgress,
+  } = useNJStore();
   const { setView } = useViewStore();
 
   const [substitutionModel, setSubstitutionModel] = useState("PDiff");
@@ -31,7 +47,7 @@ export default function AnalyseDropdown({ onClose, runNJ }: { onClose: () => voi
 
   function handleRunNJ() {
     setRunning();
-    onClose();
+    document.getElementById(id)?.hidePopover();
     const njConfig: NJConfig = {
       msa: msaData,
       n_bootstrap_samples: nBootstrapSamples,
@@ -46,15 +62,25 @@ export default function AnalyseDropdown({ onClose, runNJ }: { onClose: () => voi
       onProgress: (current, total) => setProgress(current, total),
     })
       .then(({ newick, distanceMatrix, avgDistance }) => {
-        setResult(newick, distanceMatrix, avgDistance, { substitution_model: substitutionModel, n_bootstrap_samples: nBootstrapSamples });
+        setResult(newick, distanceMatrix, avgDistance, {
+          substitution_model: substitutionModel,
+          n_bootstrap_samples: nBootstrapSamples,
+        });
         setView("Tree");
       })
       .catch((err: Error) => setError(err.message));
   }
 
   return (
-    <ul className="absolute top-full left-0 mt-1 menu menu-sm bg-base-100 rounded-box shadow-lg z-20 min-w-max p-2">
-      <li><a className="menu-title">Build NJ tree</a></li>
+    <ul
+      id={id}
+      popover="auto"
+      className="dropdown menu menu-sm bg-base-100 rounded-box shadow-lg min-w-max p-2"
+      style={{ positionAnchor: `--${id}` }}
+    >
+      <li>
+        <a className="menu-title">Build NJ tree</a>
+      </li>
       <li>
         <a className="menu-title">Substitution model</a>
         <ul>
@@ -80,11 +106,13 @@ export default function AnalyseDropdown({ onClose, runNJ }: { onClose: () => voi
           Bootstrap replicates
           <input
             type="number"
-            className="input input-xs w-20 text-right"
+            className="input input-xs w-20 text-center"
             min={0}
             step={100}
             value={nBootstrapSamples}
-            onChange={(e) => setNBootstrapSamples(Math.max(0, parseInt(e.target.value) || 0))}
+            onChange={(e) =>
+              setNBootstrapSamples(Math.max(0, parseInt(e.target.value) || 0))
+            }
           />
         </label>
       </li>

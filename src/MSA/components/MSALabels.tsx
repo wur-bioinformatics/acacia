@@ -1,6 +1,7 @@
-import type { JSX } from "react";
+import { useState, useRef, type JSX } from "react";
 import type { SeqObject } from "../types";
 import { CELL_SIZE } from "../constants";
+import { useSequenceStore } from "../../sequenceStore";
 
 type Props = {
   msaData: SeqObject[];
@@ -15,7 +16,12 @@ export default function MSALabels({
   offsetY,
   width,
 }: Props): JSX.Element {
+  const { moveSequence } = useSequenceStore();
+  const dragIndexRef = useRef<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
   const nRows = msaData.length + (showConsensus ? 1 : 0);
+
   return (
     <div
       style={{
@@ -47,7 +53,26 @@ export default function MSALabels({
         )}
         {msaData.map((seq, i) => (
           <div
-            key={i}
+            key={seq.identifier}
+            draggable
+            onDragStart={() => {
+              dragIndexRef.current = i;
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOverIndex(i);
+            }}
+            onDrop={() => {
+              if (dragIndexRef.current !== null && dragIndexRef.current !== i) {
+                moveSequence(dragIndexRef.current, i);
+              }
+              dragIndexRef.current = null;
+              setDragOverIndex(null);
+            }}
+            onDragEnd={() => {
+              dragIndexRef.current = null;
+              setDragOverIndex(null);
+            }}
             style={{
               height: CELL_SIZE,
               lineHeight: `${CELL_SIZE}px`,
@@ -58,7 +83,9 @@ export default function MSALabels({
               whiteSpace: "nowrap",
               paddingRight: 8,
               textAlign: "right",
-              opacity: 0.45,
+              cursor: "grab",
+              opacity: dragOverIndex === i ? 0.8 : 0.45,
+              outline: dragOverIndex === i ? "1px solid currentColor" : undefined,
             }}
           >
             {seq.identifier}

@@ -35,6 +35,8 @@ class CanvasDrawer {
     colorStyle: "DNA",
     isMinimap: false,
     isConservation: false,
+    highlightPattern: "",
+    highlightUseRegex: false,
   };
   private isMinimap: boolean = false;
 
@@ -53,6 +55,64 @@ class CanvasDrawer {
   updateDrawSettings(options: DrawOptions, isMinimap: boolean) {
     this.isMinimap = isMinimap;
     this.options = options;
+    this.highlightCols = this.computeHighlightCols(options);
+  }
+
+  // Returns a Set of column indices that should be highlighted across ALL rows,
+  // plus a per-row map for row-specific matches (sequence-level).
+  // We highlight every cell in a column if ANY row matches at that column.
+  private highlightCols: Set<number> = new Set();
+  // Per-row sets: row index → Set of col indices
+  private highlightColsByRow: Map<number, Set<number>> = new Map();
+
+  private computeHighlightCols(options: DrawOptions): Set<number> {
+    const { highlightPattern, highlightUseRegex } = options;
+    this.highlightColsByRow = new Map();
+    if (!highlightPattern) return new Set();
+
+    let regex: RegExp | null = null;
+    if (highlightUseRegex) {
+      try {
+        regex = new RegExp(highlightPattern, "gi");
+      } catch {
+        return new Set();
+      }
+    }
+
+    const allCols = new Set<number>();
+
+    for (let row = 0; row < this.msaData.length; row++) {
+      const seq = this.msaData[row].sequence;
+      const rowCols = new Set<number>();
+
+      if (regex) {
+        regex.lastIndex = 0;
+        let match: RegExpExecArray | null;
+        while ((match = regex.exec(seq)) !== null) {
+          for (let i = match.index; i < match.index + match[0].length; i++) {
+            rowCols.add(i);
+            allCols.add(i);
+          }
+          if (match[0].length === 0) regex.lastIndex++;
+        }
+      } else {
+        // Plain substring search (case-insensitive)
+        const pat = highlightPattern.toLowerCase();
+        const s = seq.toLowerCase();
+        let pos = s.indexOf(pat);
+        while (pos !== -1) {
+          for (let i = pos; i < pos + pat.length; i++) {
+            rowCols.add(i);
+            allCols.add(i);
+          }
+          pos = s.indexOf(pat, pos + 1);
+        }
+      }
+
+      if (rowCols.size > 0) this.highlightColsByRow.set(row, rowCols);
+    }
+
+    return allCols;
   }
 
   resize(width: number, height: number) {
@@ -191,20 +251,26 @@ class CanvasDrawer {
     }
 
     // Sequence rows
+    const hasHighlight = this.highlightColsByRow.size > 0;
     for (let row = 0; row < nRows; row++) {
       const drawRow = showConsensus ? row + 1 : row;
+      const rowHighlight = hasHighlight ? this.highlightColsByRow.get(row) : undefined;
       for (let col = startCol; col < endCol; col++) {
         const char = this.msaData[row].sequence[col];
         const consensusChar = consensus[col];
         const matchesConsensus =
           showConsensus && char.toUpperCase() === consensusChar?.toUpperCase();
 
-        ctx.fillStyle = charToColor(
-          char,
-          col,
-          this.options.colorStyle,
-          this.analysis,
-        );
+        if (hasHighlight) {
+          ctx.fillStyle = rowHighlight?.has(col) ? "#FFE000" : "#e0e0e0";
+        } else {
+          ctx.fillStyle = charToColor(
+            char,
+            col,
+            this.options.colorStyle,
+            this.analysis,
+          );
+        }
         ctx.fillRect(
           col * cellSize,
           drawRow * cellSize,
@@ -242,6 +308,7 @@ self.onmessage = (e: MessageEvent<CanvasMessage>) => {
     drawer.init(e.data.canvas);
   } else if (type === "setMSA") {
     drawer.setMSAData(e.data.msaData);
+    drawer.redraw();
   } else if (type === "redraw") {
     const { drawOptions, isMinimap, canvasWidth, canvasHeight } = e.data;
     drawer.resize(canvasWidth, canvasHeight);
