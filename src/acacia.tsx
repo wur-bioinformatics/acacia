@@ -5,6 +5,7 @@ import React, { JSX } from "react";
 import { AcaciaBrand } from "./AcaciaLogo";
 import { viewOptions, useViewStore, type View } from "./viewStore";
 import { useNJStore } from "./NJ/njStore";
+import { version } from "../package.json";
 
 function ViewDispatcher({ view }: { view: View }): JSX.Element | null {
   switch (view) {
@@ -49,8 +50,9 @@ export default function Acacia(): JSX.Element {
         </div>
       </div>
       <footer className="footer footer-horizontal bg-base-200 text-base-content border-t border-base-300 items-center px-6 py-3">
-        <aside className="flex items-center opacity-60">
+        <aside className="flex items-center gap-2 opacity-60">
           <AcaciaBrand size={18} />
+          <span className="text-xs">v{version}</span>
         </aside>
         <nav className="ml-auto">
           <a
