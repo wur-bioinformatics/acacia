@@ -16,15 +16,6 @@ npm install
 npm run dev
 ```
 
-## Commands
-
-| Command | Description |
-|---|---|
-| `npm run dev` | Start dev server with HMR |
-| `npm run build` | Type-check and build for production |
-| `npm run lint` | Run ESLint |
-| `npm run test` | Run Vitest |
-
 ## Stack
 
 - React + TypeScript (Vite)
