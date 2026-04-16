@@ -2,6 +2,9 @@
 
 A web app for visualizing multiple sequence alignments (MSA) and phylogenetic trees. Built with React and TypeScript.
 
+[![Test](https://github.com/wur-bioinformatics/acacia/actions/workflows/test.yml/badge.svg)](https://github.com/wur-bioinformatics/acacia/actions/workflows/test.yml)
+[![Deploy to GitHub Pages](https://github.com/wur-bioinformatics/acacia/actions/workflows/deploy.yml/badge.svg)](https://github.com/wur-bioinformatics/acacia/actions/workflows/deploy.yml)
+
 ## Features
 
 - **MSA viewer** — renders large alignments efficiently using OffscreenCanvas in a Web Worker
