@@ -27,6 +27,7 @@ export type DrawOptions = {
   colorStyle: ColorStyle;
   highlightPattern: string;
   highlightUseRegex: boolean;
+  darkMode: boolean;
 };
 
 export type SeqObject = {

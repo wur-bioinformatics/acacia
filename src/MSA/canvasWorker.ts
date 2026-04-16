@@ -37,6 +37,7 @@ class CanvasDrawer {
     isMinimap: false,
     highlightPattern: "",
     highlightUseRegex: false,
+    darkMode: false,
   };
   private isMinimap: boolean = false;
   private dragIndex: number | null = null;
@@ -175,6 +176,7 @@ class CanvasDrawer {
           col,
           this.options.colorStyle,
           this.analysis,
+          this.options.darkMode,
         );
         ctx.fillRect(
           col * cellSize,
@@ -183,7 +185,7 @@ class CanvasDrawer {
           cellSize * CELL_FILL_RATIO,
         );
         if (showLetters && drawLetters && !this.isMinimap) {
-          ctx.fillStyle = "black";
+          ctx.fillStyle = this.options.darkMode ? "white" : "black";
           ctx.font = `bold ${cellSize * 0.6}px "Azeret Mono", monospace`;
           ctx.textBaseline = "middle";
           ctx.textAlign = "center";
@@ -231,13 +233,18 @@ class CanvasDrawer {
           showConsensus && char.toUpperCase() === consensusChar?.toUpperCase();
 
         if (hasHighlight) {
-          ctx.fillStyle = rowHighlight?.has(col) ? "#FFE000" : "#f4f4f4";
+          ctx.fillStyle = rowHighlight?.has(col)
+            ? "#FFE000"
+            : this.options.darkMode
+              ? "#2a2a2a"
+              : "#f4f4f4";
         } else {
           ctx.fillStyle = charToColor(
             char,
             col,
             this.options.colorStyle,
             this.analysis,
+            this.options.darkMode,
           );
         }
         ctx.fillRect(
@@ -249,7 +256,7 @@ class CanvasDrawer {
 
         if (showLetters && drawLetters && !this.isMinimap) {
           const label = matchesConsensus ? "·" : char;
-          ctx.fillStyle = "black";
+          ctx.fillStyle = this.options.darkMode ? "white" : "black";
           ctx.font = `${cellSize * 0.6}px "Azeret Mono", monospace`;
           ctx.textBaseline = "middle";
           ctx.textAlign = "center";

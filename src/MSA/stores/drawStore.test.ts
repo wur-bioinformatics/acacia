@@ -17,6 +17,7 @@ beforeEach(() => {
       colorStyle: "DNA",
       highlightPattern: "",
       highlightUseRegex: false,
+      darkMode: false,
     },
   });
 });

@@ -32,6 +32,7 @@ export const useDrawStore = create<DrawState>((set) => ({
     colorStyle: "DNA",
     highlightPattern: "",
     highlightUseRegex: false,
+    darkMode: localStorage.getItem("theme") === "dark",
   },
   sequenceTypeOverride: null,
   dragState: null,

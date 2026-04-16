@@ -2,29 +2,8 @@ import { useEffect, useRef, type JSX } from "react";
 import { useDrawStore } from "../stores/drawStore";
 import { computeConservationScores } from "../utils/msaAnalysis";
 import { CELL_SIZE, CELL_FILL_RATIO } from "../constants";
-import type { TrackType, MSAColumnStat, ColorStyle, MSAColumnAnalysis } from "../types";
-import {
-  dnaColorMap,
-  dnaClustalX,
-  aaClustalX,
-  aaZappo,
-  aaTaylor,
-} from "../colourSchemes";
-
-function charColor(char: string, col: number, colorStyle: ColorStyle, analysis: MSAColumnAnalysis): string {
-  const upper = char.toUpperCase();
-  switch (colorStyle) {
-    case "DNA":          return dnaColorMap.get(upper) ?? "#cccccc";
-    case "DNA ClustalX": return dnaClustalX.get(upper) ?? "#cccccc";
-    case "AA ClustalX":  return aaClustalX.get(upper) ?? "#cccccc";
-    case "AA Zappo":     return aaZappo.get(upper) ?? "#cccccc";
-    case "AA Taylor":    return aaTaylor.get(upper) ?? "#cccccc";
-    case "Parsimony Informative": return analysis.parsimonyInformativeSites.includes(col) ? "royalblue" : "#f4f4f4";
-    case "Conserved":    return analysis.conservedSites.includes(col) ? "royalblue" : "#f4f4f4";
-    case "Variable":     return analysis.variableSites.includes(col) ? "royalblue" : "#f4f4f4";
-    default:             return "#cccccc";
-  }
-}
+import type { TrackType, MSAColumnStat, MSAColumnAnalysis } from "../types";
+import { charToColor } from "../colourSchemes";
 
 export default function TrackCanvas({
   width,
@@ -43,6 +22,7 @@ export default function TrackCanvas({
   const offsetX = useDrawStore((s) => s.drawOptions.offsetX);
   const scale = useDrawStore((s) => s.drawOptions.scale);
   const colorStyle = useDrawStore((s) => s.drawOptions.colorStyle);
+  const darkMode = useDrawStore((s) => s.drawOptions.darkMode);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -92,7 +72,7 @@ export default function TrackCanvas({
 
           if (charH < 3) {
             // Too small for a legible letter — draw a thin bar
-            ctx.fillStyle = charColor(char, col, colorStyle, analysis);
+            ctx.fillStyle = charToColor(char, col, colorStyle, analysis, darkMode);
             ctx.fillRect(col * CELL_SIZE, y, cellW, charH);
           } else {
             ctx.save();
@@ -103,7 +83,7 @@ export default function TrackCanvas({
             const sy = charH / capH;
             ctx.translate(col * CELL_SIZE, y);
             ctx.scale(sx, sy);
-            ctx.fillStyle = charColor(char, col, colorStyle, analysis);
+            ctx.fillStyle = charToColor(char, col, colorStyle, analysis, darkMode);
             // Drawing at actualBoundingBoxAscent places the glyph top exactly at the
             // translated origin (y), so the glyph fills [y, y+charH] precisely.
             ctx.fillText(char, 0, refMetrics.actualBoundingBoxAscent);
@@ -116,7 +96,7 @@ export default function TrackCanvas({
     }
 
     ctx.restore();
-  }, [offsetX, scale, width, height, trackType, columnStats, colorStyle, analysis]);
+  }, [offsetX, scale, width, height, trackType, columnStats, colorStyle, analysis, darkMode]);
 
   return (
     <canvas

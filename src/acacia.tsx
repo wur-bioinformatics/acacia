@@ -1,10 +1,11 @@
 import MSA from "./MSA";
 import Tree from "./tree";
 import { DistanceMatrix } from "./NJ";
-import React, { JSX } from "react";
+import React, { JSX, useState, useEffect } from "react";
 import { AcaciaBrand } from "./AcaciaLogo";
 import { viewOptions, useViewStore, type View } from "./viewStore";
 import { useNJStore } from "./NJ/njStore";
+import { useDrawStore } from "./MSA/stores/drawStore";
 import { version } from "../package.json";
 
 function ViewDispatcher({ view }: { view: View }): JSX.Element | null {
@@ -26,10 +27,44 @@ export default function Acacia(): JSX.Element {
   const { view, setView } = useViewStore();
   const { status: njStatus } = useNJStore();
   const treeReady = njStatus === "done";
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    return (localStorage.getItem("theme") as "light" | "dark") ?? "light";
+  });
+
+  const setDrawOptions = useDrawStore((s) => s.setDrawOptions);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+    setDrawOptions({ darkMode: theme === "dark" });
+  }, [theme, setDrawOptions]);
+
+  function toggleTheme() {
+    setTheme((t) => (t === "light" ? "dark" : "light"));
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
       <div className="flex-1 max-w-screen mx-auto w-full px-3 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8">
+        <div className="relative">
+          <div className="absolute top-0 right-0 flex items-center h-8">
+            <button
+              className="btn btn-ghost btn-sm opacity-50 hover:opacity-100 transition-opacity"
+              onClick={toggleTheme}
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark" ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                </svg>
+              )}
+            </button>
+          </div>
         <div className="tabs tabs-lift">
           {viewOptions.map((viewOption) => (
             <React.Fragment key={viewOption}>
@@ -47,6 +82,7 @@ export default function Acacia(): JSX.Element {
               </div>
             </React.Fragment>
           ))}
+        </div>
         </div>
       </div>
       <footer className="footer footer-horizontal bg-base-200 text-base-content border-t border-base-300 items-center px-6 py-3">
