@@ -4,16 +4,11 @@ import { defineConfig } from "vitest/config";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import svgr from "vite-plugin-svgr";
-import wasm from "vite-plugin-wasm";
-import topLevelAwait from "vite-plugin-top-level-await";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // https://vite.dev/config/
 export default defineConfig({
-  worker: {
-    plugins: () => [wasm(), topLevelAwait()],
-  },
   build: {
     lib: {
       entry: resolve(__dirname, "src/main.ts"),
@@ -28,7 +23,7 @@ export default defineConfig({
       },
     },
   },
-  plugins: [react(), svgr(), wasm(), topLevelAwait(), tailwindcss()],
+  plugins: [react(), svgr(), tailwindcss()],
   test: {
     environment: "jsdom",
     globals: true,

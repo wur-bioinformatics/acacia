@@ -1,6 +1,6 @@
 # Acacia — Bioinformatics MSA & Phylogenetic Tree Viewer
 
-A React/TypeScript web app for visualizing Multiple Sequence Alignments (MSA) and phylogenetic trees. Includes a Rust/WASM module for offscreen canvas rendering.
+A React/TypeScript web app for visualizing Multiple Sequence Alignments (MSA) and phylogenetic trees.
 
 ## Commands
 
@@ -28,8 +28,7 @@ Context API is used **only for mutable DOM refs** that need to be shared across 
 CPU-heavy work runs off the main thread.
 
 - `MSA/canvasWorker.ts` — MSA canvas rendering (OffscreenCanvas)
-- `NJ/njWorker.ts` — Neighbor-Joining algorithm
-- `src/worker/` — Rust WASM module (`wasm-bindgen`, loaded via `vite-plugin-wasm`)
+- `NJ/njWorker.ts` — Neighbor-Joining algorithm via `@holmrenser/nj` (Rust/WASM, [`nj.rs`](https://github.com/holmrenser/nj))
 
 Worker message protocols are defined as discriminated union types in the module's `types.ts`. The worker lifecycle is managed by a dedicated hook (`useMainCanvasWorker`, `useNJWorker`).
 
@@ -75,3 +74,6 @@ Co-located `*.test.ts` files (e.g. `MSA/utils/fasta.test.ts`, `tree/layout.test.
 - **No custom right-click menus** — overriding the browser context menu is an antipattern. Use click-triggered floating panels (popovers) instead: click element → `position: fixed` panel near cursor, closed by Escape or outside click
 - **Data structures over serialization** — perform operations on in-memory data structures, not serialized text. E.g. `rerootTree(root: TreeNode, id: string): TreeNode` rather than parsing/serializing Newick mid-interaction
 - **Pan/zoom hook pattern**: attach to the target element via `useEffect`, read current state from `store.getState()` in event handlers (not reactive subscriptions) to avoid stale closures, write back via store actions
+- **Short and readable** — prefer concise expressions over verbose ones. Keep functions focused and small. Avoid intermediate variables that add no clarity. No over-abstraction: don't create helpers for one-off use, don't design for hypothetical reuse.
+- **Performance** — use narrow Zustand selectors (`useStore((s) => s.x)` not `useStore()`) so components only re-render on the slice they need. Use `useMemo` for expensive derived values (layout computation, filtered sequences); `useCallback` for handlers that are passed down or captured in refs. In event handlers, read current state from `store.getState()` — never from reactive subscriptions — to avoid stale closures.
+- **Clean UI aesthetics** — DaisyUI semantic components first (`btn`, `menu`, `input`, `tabs`, `join`, etc.), then Tailwind utilities. Use DaisyUI theme tokens (`bg-base-100/200/300`, `text-base-content`, `border-base-300`) instead of arbitrary colors. Use `opacity-50 hover:opacity-100 transition-opacity` for muted/hover states. Inline SVG paths for icons — no icon library. Consistent spatial rhythm: `gap-2`, `px-1`, `rounded-box`.
