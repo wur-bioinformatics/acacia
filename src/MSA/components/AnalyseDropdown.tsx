@@ -1,29 +1,34 @@
 import type { JSX } from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { NJConfig } from "@holmrenser/nj";
 
 type SubstitutionModel = NJConfig["substitution_model"];
 import { useMSAStore } from "../stores/msaStore";
+import { useDrawStore } from "../stores/drawStore";
 import { useNJStore } from "../../NJ/njStore";
 import { useNJWorker } from "../../NJ";
 import { useViewStore } from "../../viewStore";
+import type { SequenceType } from "../types";
 
 type SubstitutionModelOption = {
   value: string;
   label: string;
   description: string;
+  sequenceType: SequenceType | null;
 };
 
 const SUBSTITUTION_MODELS: SubstitutionModelOption[] = [
-  { value: "PDiff", label: "PDiff", description: "p-distance (DNA + protein)" },
-  { value: "JukesCantor", label: "Jukes-Cantor", description: "DNA only" },
-  { value: "Kimura2P", label: "Kimura 2P", description: "DNA only" },
-  { value: "Poisson", label: "Poisson", description: "protein only" },
+  { value: "PDiff", label: "PDiff", description: "p-distance", sequenceType: null },
+  { value: "JukesCantor", label: "Jukes-Cantor", description: "DNA only", sequenceType: "DNA" },
+  { value: "Kimura2P", label: "Kimura 2P", description: "DNA only", sequenceType: "DNA" },
+  { value: "Poisson", label: "Poisson", description: "protein only", sequenceType: "Protein" },
 ];
 
 export default function AnalyseDropdown({ id }: { id: string }): JSX.Element {
   const { runNJ } = useNJWorker();
   const { msaData } = useMSAStore();
+  const { sequenceTypeOverride } = useDrawStore();
+  const { detectedSequenceType } = useMSAStore();
   const {
     status: njStatus,
     setRunning,
@@ -33,8 +38,17 @@ export default function AnalyseDropdown({ id }: { id: string }): JSX.Element {
   } = useNJStore();
   const { setView } = useViewStore();
 
+  const effectiveType = sequenceTypeOverride ?? detectedSequenceType;
+
   const [substitutionModel, setSubstitutionModel] = useState<SubstitutionModel>("PDiff");
   const [nBootstrapSamples, setNBootstrapSamples] = useState(100);
+
+  useEffect(() => {
+    const model = SUBSTITUTION_MODELS.find((m) => m.value === substitutionModel);
+    if (model?.sequenceType !== null && model?.sequenceType !== effectiveType) {
+      setSubstitutionModel("PDiff");
+    }
+  }, [effectiveType, substitutionModel]);
 
   function handleRunNJ() {
     setRunning();
@@ -75,21 +89,25 @@ export default function AnalyseDropdown({ id }: { id: string }): JSX.Element {
       <li>
         <a className="menu-title">Substitution model</a>
         <ul>
-          {SUBSTITUTION_MODELS.map(({ value, label, description }) => (
-            <li key={value}>
-              <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
-                <input
-                  type="radio"
-                  className="radio radio-xs"
-                  name="substitutionModel"
-                  checked={substitutionModel === value}
-                  onChange={() => setSubstitutionModel(value as SubstitutionModel)}
-                />
-                <span>{label}</span>
-                <span className="opacity-40 text-xs">{description}</span>
-              </label>
-            </li>
-          ))}
+          {SUBSTITUTION_MODELS.map(({ value, label, description, sequenceType }) => {
+            const disabled = sequenceType !== null && sequenceType !== effectiveType;
+            return (
+              <li key={value} className={disabled ? "opacity-30" : ""}>
+                <label className={`flex items-center gap-2 whitespace-nowrap ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}>
+                  <input
+                    type="radio"
+                    className="radio radio-xs"
+                    name="substitutionModel"
+                    checked={substitutionModel === value}
+                    disabled={disabled}
+                    onChange={() => setSubstitutionModel(value as SubstitutionModel)}
+                  />
+                  <span>{label}</span>
+                  <span className="opacity-40 text-xs">{description}</span>
+                </label>
+              </li>
+            );
+          })}
         </ul>
       </li>
       <li>

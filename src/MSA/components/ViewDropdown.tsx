@@ -1,9 +1,8 @@
 import type { JSX } from "react";
 import { Fragment } from "react";
-import { COLOR_SCHEME_GROUPS, DEFAULT_COLOR_SCHEME } from "../colourSchemes";
+import { COLOR_SCHEME_GROUPS } from "../colourSchemes";
 import { useDrawStore } from "../stores/drawStore";
 import { useMSAStore } from "../stores/msaStore";
-import type { SequenceType } from "../types";
 
 export default function ViewDropdown({ id }: { id: string }): JSX.Element {
   const {
@@ -11,27 +10,17 @@ export default function ViewDropdown({ id }: { id: string }): JSX.Element {
       showLetters,
       showConsensus,
       showLabels,
+      showMinimap,
       colorStyle: currentColorStyle,
-      isConservation,
     },
     sequenceTypeOverride,
+    activeTrack,
     setDrawOptions,
-    setSequenceTypeOverride,
+    setActiveTrack,
   } = useDrawStore();
   const { detectedSequenceType } = useMSAStore();
 
   const effectiveType = sequenceTypeOverride ?? detectedSequenceType;
-
-  function handleTypeChange(override: SequenceType | null) {
-    const newEffective = override ?? detectedSequenceType;
-    setSequenceTypeOverride(override);
-    const currentGroup = COLOR_SCHEME_GROUPS.find((g) =>
-      g.schemes.includes(currentColorStyle)
-    );
-    if (currentGroup?.type !== null && currentGroup?.type !== newEffective) {
-      setDrawOptions({ colorStyle: DEFAULT_COLOR_SCHEME[newEffective] });
-    }
-  }
 
   return (
     <ul id={id} popover="auto" className="dropdown menu menu-sm bg-base-100 rounded-box shadow-lg min-w-max p-2" style={{ positionAnchor: `--${id}` }}>
@@ -69,72 +58,53 @@ export default function ViewDropdown({ id }: { id: string }): JSX.Element {
         </label>
       </li>
       <li>
-        <a className="menu-title">Minimap</a>
+        <label className="flex items-center justify-between gap-6 cursor-pointer">
+          Show minimap
+          <input
+            type="checkbox"
+            className="toggle toggle-xs"
+            checked={showMinimap}
+            onChange={() => setDrawOptions({ showMinimap: !showMinimap })}
+          />
+        </label>
+      </li>
+      <li>
+        <a className="menu-title">Track</a>
         <ul>
           <li>
-            <label>
+            <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
               <input
                 type="radio"
                 className="radio radio-xs"
-                name="minimap"
-                checked={!isConservation}
-                onChange={() => setDrawOptions({ isConservation: false })}
+                name="activeTrack"
+                checked={activeTrack === null}
+                onChange={() => setActiveTrack(null)}
               />
-              Overview
+              None
             </label>
           </li>
           <li>
-            <label>
+            <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
               <input
                 type="radio"
                 className="radio radio-xs"
-                name="minimap"
-                checked={isConservation}
-                onChange={() => setDrawOptions({ isConservation: true })}
+                name="activeTrack"
+                checked={activeTrack === "conservation"}
+                onChange={() => setActiveTrack("conservation")}
               />
               Conservation
             </label>
           </li>
-        </ul>
-      </li>
-      <li>
-        <a className="menu-title">Sequence type</a>
-        <ul>
           <li>
             <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
               <input
                 type="radio"
                 className="radio radio-xs"
-                name="seqType"
-                checked={sequenceTypeOverride === null}
-                onChange={() => handleTypeChange(null)}
+                name="activeTrack"
+                checked={activeTrack === "logo"}
+                onChange={() => setActiveTrack("logo")}
               />
-              Auto
-              <span className="text-xs opacity-50">({detectedSequenceType})</span>
-            </label>
-          </li>
-          <li>
-            <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
-              <input
-                type="radio"
-                className="radio radio-xs"
-                name="seqType"
-                checked={sequenceTypeOverride === "DNA"}
-                onChange={() => handleTypeChange("DNA")}
-              />
-              DNA
-            </label>
-          </li>
-          <li>
-            <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
-              <input
-                type="radio"
-                className="radio radio-xs"
-                name="seqType"
-                checked={sequenceTypeOverride === "Protein"}
-                onChange={() => handleTypeChange("Protein")}
-              />
-              Protein
+              Logo
             </label>
           </li>
         </ul>

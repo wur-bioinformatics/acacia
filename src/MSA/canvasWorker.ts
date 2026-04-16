@@ -9,7 +9,6 @@ import {
 import {
   computeColumnStats,
   computeConsensus,
-  computeConservationScores,
   analyseMSAColumns,
 } from "./utils/msaAnalysis";
 import { charToColor } from "./colourSchemes";
@@ -30,12 +29,12 @@ class CanvasDrawer {
     showLetters: true,
     showConsensus: false,
     showLabels: true,
+    showMinimap: true,
     scale: 1,
     offsetX: 0,
     offsetY: 0,
     colorStyle: "DNA",
     isMinimap: false,
-    isConservation: false,
     highlightPattern: "",
     highlightUseRegex: false,
   };
@@ -126,67 +125,7 @@ class CanvasDrawer {
 
   redraw() {
     if (!this.ctx || !this.canvas || this.msaData.length === 0) return;
-    if (this.options.isConservation && this.isMinimap) {
-      this.drawConservation();
-    } else {
-      this.drawMSA();
-    }
-  }
-
-  drawConservation() {
-    const ctx = this.ctx!;
-    const { cellSize, scale, offsetX } = this.options;
-    const conservationScores = computeConservationScores(this.columnStats);
-    const nCols = this.msaData[0].sequence.length;
-    const canvasWidth = ctx.canvas.width;
-    const canvasHeight = ctx.canvas.height;
-    const invScale = 1 / scale;
-
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-
-    if (this.isMinimap) {
-      const scaleX = canvasWidth / (nCols * cellSize);
-      ctx.save();
-      ctx.scale(scaleX, 1);
-      for (let col = 0; col < nCols; col++) {
-        const score = conservationScores[col] ?? 0;
-        const barH = score * canvasHeight;
-        ctx.fillStyle = `hsl(${220 - score * 180}, 70%, 50%)`;
-        ctx.fillRect(
-          col * cellSize,
-          canvasHeight - barH,
-          cellSize * CELL_FILL_RATIO,
-          barH,
-        );
-      }
-      ctx.restore();
-    } else {
-      const startCol = Math.max(
-        0,
-        Math.floor((-offsetX * invScale) / cellSize),
-      );
-      const endCol = Math.min(
-        nCols,
-        Math.ceil(((canvasWidth - offsetX) * invScale) / cellSize),
-      );
-
-      ctx.save();
-      ctx.translate(offsetX, 0);
-      ctx.scale(scale, 1);
-
-      for (let col = startCol; col < endCol; col++) {
-        const score = conservationScores[col] ?? 0;
-        const barH = score * canvasHeight;
-        ctx.fillStyle = `hsl(${220 - score * 180}, 70%, 50%)`;
-        ctx.fillRect(
-          col * cellSize,
-          canvasHeight - barH,
-          cellSize * CELL_FILL_RATIO,
-          barH,
-        );
-      }
-      ctx.restore();
-    }
+    this.drawMSA();
   }
 
   drawMSA() {

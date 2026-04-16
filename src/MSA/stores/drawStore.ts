@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { DrawOptions, InteractionMode, SequenceType } from "../types";
+import type { DrawOptions, InteractionMode, SequenceType, TrackType } from "../types";
 
 type DrawState = {
   drawOptions: DrawOptions;
@@ -7,6 +7,7 @@ type DrawState = {
   dragState: { dragIndex: number; hoverIndex: number } | null;
   interactionMode: InteractionMode;
   hoverRow: number | null;
+  activeTrack: TrackType | null;
   setDrawOptions: (
     opts: Partial<DrawOptions> | ((prev: DrawOptions) => Partial<DrawOptions>)
   ) => void;
@@ -14,6 +15,7 @@ type DrawState = {
   setDragState: (state: { dragIndex: number; hoverIndex: number } | null) => void;
   setInteractionMode: (mode: InteractionMode) => void;
   setHoverRow: (row: number | null) => void;
+  setActiveTrack: (track: TrackType | null) => void;
 };
 
 export const useDrawStore = create<DrawState>((set) => ({
@@ -21,13 +23,13 @@ export const useDrawStore = create<DrawState>((set) => ({
     showLetters: true,
     showConsensus: true,
     showLabels: window.innerWidth >= 768,
+    showMinimap: true,
     scale: 1,
     offsetX: 0,
     offsetY: 0,
     isMinimap: false,
     cellSize: 16,
     colorStyle: "DNA",
-    isConservation: false,
     highlightPattern: "",
     highlightUseRegex: false,
   },
@@ -35,6 +37,7 @@ export const useDrawStore = create<DrawState>((set) => ({
   dragState: null,
   interactionMode: "hand",
   hoverRow: null,
+  activeTrack: null,
   setDrawOptions: (options) =>
     set((state) => ({
       drawOptions:
@@ -46,4 +49,5 @@ export const useDrawStore = create<DrawState>((set) => ({
   setDragState: (dragState) => set({ dragState }),
   setInteractionMode: (interactionMode) => set({ interactionMode }),
   setHoverRow: (hoverRow) => set({ hoverRow }),
+  setActiveTrack: (activeTrack) => set({ activeTrack }),
 }));

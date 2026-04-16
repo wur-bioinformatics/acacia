@@ -6,6 +6,7 @@ import "./styles.css";
 
 import { parseFasta, readTextFile } from "./utils/fasta";
 import { CELL_SIZE, MINIMAP_HEIGHT } from "./constants";
+import { computeColumnStats } from "./utils/msaAnalysis";
 
 import type { MSAData } from "./types";
 import { useDrawStore } from "./stores/drawStore";
@@ -15,6 +16,7 @@ import useCanvasRefs from "./hooks/useCanvasRefs";
 import useMainCanvasWorker from "./hooks/useMainCanvasWorker";
 import useOverlay from "./hooks/useOverlay";
 import useLabelDividerResize from "./hooks/useLabelDividerResize";
+import useRowDividerResize from "./hooks/useRowDividerResize";
 import { useNJStore } from "../NJ/njStore";
 import { useContainerWidth } from "../hooks/useContainerWidth";
 import { analyseMSAColumns } from "./utils/msaAnalysis";
@@ -22,14 +24,17 @@ import { analyseMSAColumns } from "./utils/msaAnalysis";
 import { exampleMsa } from "./example_data";
 import MSAToolbar from "./components/MSAToolbar";
 import MSALabels from "./components/MSALabels";
+import TrackCanvas from "./components/TrackCanvas";
 import { CanvasProvider } from "./context/CanvasContext";
 
 function MSACanvas({
   isMinimap = false,
+  height: heightProp,
   width,
   msaData,
 }: {
   isMinimap?: boolean;
+  height?: number;
   width: number;
   msaData: MSAData;
 }): JSX.Element {
@@ -39,7 +44,7 @@ function MSACanvas({
 
   const nCols = msaData[0].sequence.length;
   const nDataRows = msaData.length + (showConsensus ? 1 : 0);
-  const mainHeight = isMinimap ? MINIMAP_HEIGHT : nDataRows * CELL_SIZE;
+  const mainHeight = isMinimap ? (heightProp ?? MINIMAP_HEIGHT) : nDataRows * CELL_SIZE;
 
   useMainCanvasWorker({
     canvasRef,
@@ -59,7 +64,6 @@ function MSACanvas({
         position: "relative",
         width: width,
         height: mainHeight,
-        paddingBottom: isMinimap ? 10 : 0,
       }}
     >
       <canvas
@@ -147,7 +151,10 @@ function MSAInner(): JSX.Element {
   const { order } = useSequenceStore();
   const { status: njStatus, progress } = useNJStore();
   const {
-    drawOptions: { showLabels, showConsensus, offsetY, colorStyle },
+    drawOptions: { showLabels, showConsensus, showMinimap, offsetY, colorStyle },
+    activeTrack,
+    setDrawOptions,
+    setActiveTrack,
   } = useDrawStore();
 
   const orderedMsaData = useMemo<MSAData>(() => {
@@ -166,6 +173,11 @@ function MSAInner(): JSX.Element {
     [orderedMsaData],
   );
 
+  const columnStats = useMemo(
+    () => (orderedMsaData.length > 0 ? computeColumnStats(orderedMsaData) : []),
+    [orderedMsaData],
+  );
+
   usePanZoom({ nRows, nCols });
 
   const {
@@ -173,6 +185,18 @@ function MSAInner(): JSX.Element {
     onMouseDown: onDividerMouseDown,
     onTouchStart: onDividerTouchStart,
   } = useLabelDividerResize();
+
+  const {
+    height: minimapHeight,
+    onMouseDown: onMinimapDivMouseDown,
+    onTouchStart: onMinimapDivTouchStart,
+  } = useRowDividerResize(MINIMAP_HEIGHT, 20);
+
+  const {
+    height: trackHeight,
+    onMouseDown: onTrackDivMouseDown,
+    onTouchStart: onTrackDivTouchStart,
+  } = useRowDividerResize(80, 30);
 
   const DIVIDER_WIDTH = 8;
   const effectiveLabelWidth = showLabels ? labelWidth : 0;
@@ -191,16 +215,111 @@ function MSAInner(): JSX.Element {
         <div className="flex flex-col">
           <MSAToolbar />
 
-          {/* Minimap / conservation track */}
-          <div className="flex" style={{ marginBottom: 4, marginTop: 4 }}>
+          {/* Minimap */}
+          {showMinimap && (
+            <>
+              <div className="flex" style={{ marginTop: 4 }}>
+                <div
+                  style={{
+                    width: effectiveLabelWidth + effectiveDividerWidth,
+                    height: minimapHeight,
+                    flexShrink: 0,
+                    position: "relative",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    paddingRight: effectiveDividerWidth + 8,
+                  }}
+                >
+                  {showLabels && (
+                    <>
+                      <button
+                        onClick={() => setDrawOptions({ showMinimap: false })}
+                        title="Hide minimap"
+                        style={{ position: "absolute", top: 2, left: 2 }}
+                        className="opacity-20 hover:opacity-70 transition-opacity"
+                      >
+                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                          <line x1="1" y1="1" x2="9" y2="9" />
+                          <line x1="9" y1="1" x2="1" y2="9" />
+                        </svg>
+                      </button>
+                      <span style={{ fontSize: 10, fontFamily: '"Azeret Mono", ui-monospace, monospace', opacity: 0.3, letterSpacing: "0.02em" }}>
+                        Minimap
+                      </span>
+                    </>
+                  )}
+                </div>
+                <MSACanvas isMinimap height={minimapHeight} width={canvasWidth} msaData={orderedMsaData} />
+              </div>
+
+              {/* Divider 1: bottom edge of minimap */}
+              <div
+                className="group"
+                onMouseDown={onMinimapDivMouseDown}
+                onTouchStart={onMinimapDivTouchStart}
+                style={{ cursor: "row-resize", height: 6, display: "flex", alignItems: "center" }}
+              >
+                <div className="h-px w-full bg-base-300 group-hover:bg-primary transition-colors" />
+              </div>
+            </>
+          )}
+
+          {/* Track panel */}
+          {activeTrack && (
+            <div className="flex">
+              <div
+                style={{
+                  width: effectiveLabelWidth + effectiveDividerWidth,
+                  height: trackHeight,
+                  flexShrink: 0,
+                  position: "relative",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "flex-end",
+                  paddingRight: effectiveDividerWidth + 8,
+                }}
+              >
+                {showLabels && (
+                  <>
+                    <button
+                      onClick={() => setActiveTrack(null)}
+                      title="Hide track"
+                      style={{ position: "absolute", top: 2, left: 2 }}
+                      className="opacity-20 hover:opacity-70 transition-opacity"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                        <line x1="1" y1="1" x2="9" y2="9" />
+                        <line x1="9" y1="1" x2="1" y2="9" />
+                      </svg>
+                    </button>
+                    <span style={{ fontSize: 10, fontFamily: '"Azeret Mono", ui-monospace, monospace', opacity: 0.3, letterSpacing: "0.02em" }}>
+                      {activeTrack === "conservation" ? "Conservation" : "Logo"}
+                    </span>
+                  </>
+                )}
+              </div>
+              <TrackCanvas
+                width={canvasWidth}
+                height={trackHeight}
+                trackType={activeTrack}
+                columnStats={columnStats}
+                analysis={analysis ?? { parsimonyInformativeSites: [], conservedSites: [], variableSites: [] }}
+              />
+            </div>
+          )}
+
+          {/* Divider 2: bottom edge of track */}
+          {activeTrack && (
             <div
-              style={{
-                width: effectiveLabelWidth + effectiveDividerWidth,
-                flexShrink: 0,
-              }}
-            />
-            <MSACanvas isMinimap width={canvasWidth} msaData={orderedMsaData} />
-          </div>
+              className="group"
+              onMouseDown={onTrackDivMouseDown}
+              onTouchStart={onTrackDivTouchStart}
+              style={{ cursor: "row-resize", height: 6, display: "flex", alignItems: "center" }}
+            >
+              <div className="h-px w-full bg-base-300 group-hover:bg-primary transition-colors" />
+            </div>
+          )}
 
           {/* Main canvas with labels */}
           <div className="flex">

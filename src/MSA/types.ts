@@ -1,5 +1,6 @@
 export type SequenceType = "DNA" | "Protein";
 export type InteractionMode = "pointer" | "hand";
+export type TrackType = "conservation" | "logo";
 
 export const COLORSTYLES = [
   "DNA",
@@ -18,12 +19,12 @@ export type DrawOptions = {
   showLetters: boolean;
   showConsensus: boolean;
   showLabels: boolean;
+  showMinimap: boolean;
   scale: number;
   isMinimap: boolean;
   offsetX: number;
   offsetY: number;
   colorStyle: ColorStyle;
-  isConservation: boolean;
   highlightPattern: string;
   highlightUseRegex: boolean;
 };
