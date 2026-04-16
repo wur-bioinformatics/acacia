@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseFasta } from "./fasta";
+import { parseFasta, readTextFile } from "./fasta";
 
 describe("parseFasta", () => {
   it("parses a simple two-record FASTA", () => {
@@ -53,5 +53,19 @@ describe("parseFasta", () => {
 
   it("returns empty array when no header lines are present", () => {
     expect(parseFasta("ACGT\nTGCA\n")).toEqual([]);
+  });
+});
+
+describe("readTextFile", () => {
+  it("resolves with the file text content", async () => {
+    const file = new File([">seq1\nACGT\n"], "test.fasta", {
+      type: "text/plain",
+    });
+    await expect(readTextFile(file)).resolves.toBe(">seq1\nACGT\n");
+  });
+
+  it("handles an empty file", async () => {
+    const file = new File([""], "empty.fasta", { type: "text/plain" });
+    await expect(readTextFile(file)).resolves.toBe("");
   });
 });

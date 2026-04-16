@@ -46,6 +46,7 @@ export function CanvasProvider({
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useCanvasContext(): CanvasState {
   const ctx = useContext(CanvasContext);
   if (!ctx)

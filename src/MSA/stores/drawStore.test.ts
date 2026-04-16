@@ -15,6 +15,8 @@ beforeEach(() => {
       cellSize: 16,
       colorStyle: "DNA",
       isConservation: false,
+      highlightPattern: "",
+      highlightUseRegex: false,
     },
   });
 });

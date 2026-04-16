@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 
 export function useContainerWidth(
   minWidth = 0,
-): [React.RefObject<HTMLDivElement>, number] {
+): [React.RefObject<HTMLDivElement | null>, number] {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
 

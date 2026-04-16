@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { charToColor } from "./colourSchemes";
+import { charToColor, detectSequenceType } from "./colourSchemes";
 
 const emptyAnalysis = {
   parsimonyInformativeSites: [],
@@ -59,5 +59,52 @@ describe("charToColor", () => {
 
   it("unknown char returns gap colour for sequence schemes", () => {
     expect(charToColor("X", 0, "DNA", emptyAnalysis)).toBe("#f4f4f4");
+  });
+});
+
+describe("detectSequenceType", () => {
+  it("returns DNA for sequences containing only DNA characters", () => {
+    const msa = [
+      { identifier: "s1", sequence: "ACGT" },
+      { identifier: "s2", sequence: "TTAG" },
+    ];
+    expect(detectSequenceType(msa)).toBe("DNA");
+  });
+
+  it("returns Protein when a protein-only character is present", () => {
+    const msa = [{ identifier: "s1", sequence: "ACGF" }]; // F is protein-only
+    expect(detectSequenceType(msa)).toBe("Protein");
+  });
+
+  it("detects all protein-only trigger characters (E F I L P Q)", () => {
+    for (const char of ["E", "F", "I", "L", "P", "Q"]) {
+      expect(detectSequenceType([{ identifier: "s", sequence: char }])).toBe(
+        "Protein",
+      );
+    }
+  });
+
+  it("is case-insensitive", () => {
+    expect(detectSequenceType([{ identifier: "s", sequence: "f" }])).toBe(
+      "Protein",
+    );
+  });
+
+  it("returns DNA for gap-only sequences", () => {
+    expect(detectSequenceType([{ identifier: "s", sequence: "---" }])).toBe(
+      "DNA",
+    );
+  });
+
+  it("returns DNA for empty input", () => {
+    expect(detectSequenceType([])).toBe("DNA");
+  });
+
+  it("returns Protein as soon as one sequence has a protein character", () => {
+    const msa = [
+      { identifier: "s1", sequence: "ACGT" },
+      { identifier: "s2", sequence: "ACGE" }, // E is protein-only
+    ];
+    expect(detectSequenceType(msa)).toBe("Protein");
   });
 });

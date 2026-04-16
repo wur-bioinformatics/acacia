@@ -1,31 +1,28 @@
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import svgr from "vite-plugin-svgr";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import wasm from "vite-plugin-wasm";
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: "/acacia/",
   build: {
-    lib: {
-      entry: resolve(__dirname, "src/main.ts"),
-      name: "acacia",
-    },
-    rollupOptions: {
-      external: ["react"],
-      output: {
-        globals: {
-          react: "React",
-        },
-      },
-    },
+    target: "esnext",
   },
-  plugins: [react(), svgr(), tailwindcss()],
+  plugins: [wasm(), react(), svgr(), tailwindcss()],
+  worker: {
+    format: "es",
+    plugins: () => [wasm()],
+  },
   test: {
     environment: "jsdom",
     globals: true,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html"],
+      include: ["src/**/*.ts", "src/**/*.tsx"],
+      exclude: ["src/**/*.test.*", "src/**/types.ts", "src/**/*.d.ts"],
+    },
   },
 });

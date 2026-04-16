@@ -1,6 +1,8 @@
 import type { JSX } from "react";
 import { useState } from "react";
 import type { NJConfig } from "@holmrenser/nj";
+
+type SubstitutionModel = NJConfig["substitution_model"];
 import { useMSAStore } from "../stores/msaStore";
 import { useNJStore } from "../../NJ/njStore";
 import { useNJWorker } from "../../NJ";
@@ -31,7 +33,7 @@ export default function AnalyseDropdown({ id }: { id: string }): JSX.Element {
   } = useNJStore();
   const { setView } = useViewStore();
 
-  const [substitutionModel, setSubstitutionModel] = useState("PDiff");
+  const [substitutionModel, setSubstitutionModel] = useState<SubstitutionModel>("PDiff");
   const [nBootstrapSamples, setNBootstrapSamples] = useState(100);
 
   function handleRunNJ() {
@@ -81,7 +83,7 @@ export default function AnalyseDropdown({ id }: { id: string }): JSX.Element {
                   className="radio radio-xs"
                   name="substitutionModel"
                   checked={substitutionModel === value}
-                  onChange={() => setSubstitutionModel(value)}
+                  onChange={() => setSubstitutionModel(value as SubstitutionModel)}
                 />
                 <span>{label}</span>
                 <span className="opacity-40 text-xs">{description}</span>
