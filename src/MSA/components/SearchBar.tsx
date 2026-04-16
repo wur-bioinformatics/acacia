@@ -2,6 +2,11 @@ import { useRef, useState } from "react";
 import type { JSX } from "react";
 import { useDrawStore } from "../stores/drawStore";
 
+function isValidRegex(pattern: string): boolean {
+  try { new RegExp(pattern); return true; }
+  catch { return false; }
+}
+
 export default function SearchBar(): JSX.Element {
   const { drawOptions, setDrawOptions } = useDrawStore();
   const { highlightPattern, highlightUseRegex } = drawOptions;
@@ -10,31 +15,13 @@ export default function SearchBar(): JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handlePatternChange = (value: string) => {
-    if (highlightUseRegex && value) {
-      try {
-        new RegExp(value);
-        setRegexError(false);
-      } catch {
-        setRegexError(true);
-      }
-    } else {
-      setRegexError(false);
-    }
+    setRegexError(highlightUseRegex && !!value && !isValidRegex(value));
     setDrawOptions({ highlightPattern: value });
   };
 
   const handleToggleRegex = () => {
     const next = !highlightUseRegex;
-    if (next && highlightPattern) {
-      try {
-        new RegExp(highlightPattern);
-        setRegexError(false);
-      } catch {
-        setRegexError(true);
-      }
-    } else {
-      setRegexError(false);
-    }
+    setRegexError(next && !!highlightPattern && !isValidRegex(highlightPattern));
     setDrawOptions({ highlightUseRegex: next });
   };
 
@@ -75,7 +62,7 @@ export default function SearchBar(): JSX.Element {
       <button
         title={highlightUseRegex ? "Regex on" : "Regex off"}
         onClick={handleToggleRegex}
-        className={`btn btn-xs font-mono ${highlightUseRegex ? "btn-primary" : "btn-ghost opacity-50"}`}
+        className={`btn btn-xs font-mono ${highlightUseRegex ? "btn-primary" : "opacity-60"}`}
       >
         .*
       </button>

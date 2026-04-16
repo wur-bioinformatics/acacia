@@ -35,7 +35,6 @@ export type BranchesProps = {
   isRoot: boolean;
   onNodeClick: (node: LayoutNode, e: React.MouseEvent) => void;
   onBranchClick: (node: LayoutNode, e: React.MouseEvent) => void;
-  didDragRef: React.RefObject<boolean>;
 } & (RectGeomProps | RadialGeomProps);
 
 export type LayoutNode = {
@@ -67,5 +66,14 @@ export type FlatTree = {
   nodes: Map<NodeId, FlatNode>;
   rootId: NodeId;
   originalRootId: NodeId; // never changes; used for "Reset root" disabled state in UI
+  isRerooted: boolean; // true if rerootFlat has been applied at least once
   leafOrder: NodeId[]; // DFS in-order leaf IDs; used to seed sequenceStore on load
+};
+
+export type PanelState = {
+  id: string;
+  isLeaf: boolean;
+  leafName?: string;
+  x: number;
+  y: number;
 };

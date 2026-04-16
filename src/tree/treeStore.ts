@@ -17,11 +17,7 @@ let _originalFlatTree: FlatTree | null = null;
 
 type TreeState = {
   layoutMode: LayoutMode;
-  panX: number;
-  panY: number;
-  zoom: number;
   yStep: number;
-  widthScale: number;
   flatTree: FlatTree | null;
   collapsedNodes: ReadonlySet<NodeId>;
   nodeStyles: ReadonlyMap<string, NodeStyle>;
@@ -31,10 +27,7 @@ type TreeState = {
   showBootstrap: boolean;
 
   setLayoutMode: (mode: LayoutMode) => void;
-  setPanAndZoom: (x: number, y: number, z: number) => void;
   setYStep: (yStep: number) => void;
-  setWidthScale: (widthScale: number) => void;
-  resetZoom: () => void;
   resetStyles: () => void;
   // Called when a new tree is loaded — replaces flatTree, clears all state.
   setFlatTree: (ft: FlatTree) => void;
@@ -55,11 +48,7 @@ type TreeState = {
 
 export const useTreeStore = create<TreeState>((set) => ({
   layoutMode: "rectangular",
-  panX: 0,
-  panY: 0,
-  zoom: 1,
   yStep: 22,
-  widthScale: 1,
   flatTree: null,
   collapsedNodes: new Set(),
   nodeStyles: new Map(),
@@ -69,13 +58,7 @@ export const useTreeStore = create<TreeState>((set) => ({
 
   setLayoutMode: (layoutMode) => set({ layoutMode }),
 
-  setPanAndZoom: (panX, panY, zoom) => set({ panX, panY, zoom }),
-
   setYStep: (yStep) => set({ yStep }),
-
-  setWidthScale: (widthScale) => set({ widthScale }),
-
-  resetZoom: () => set({ panX: 0, panY: 0, zoom: 1 }),
 
   resetStyles: () =>
     set({

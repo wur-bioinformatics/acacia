@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="currentColor">
+  <!-- Trunk -->
+  <rect x="47" y="57" width="6" height="39" rx="3"/>
+  <!-- Main branches spreading wide and low -->
+  <path d="M50,61 Q22,56 8,45" stroke="currentColor" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <path d="M50,61 Q78,56 92,45" stroke="currentColor" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <!-- Secondary branches -->
+  <path d="M29,54 L13,39" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M71,54 L87,39" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M50,59 L50,36" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M41,57 L27,40" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M59,57 L73,40" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- Flat top canopy -->
+  <ellipse cx="50" cy="31" rx="46" ry="10"/>
+  <!-- Lower canopy layer for depth -->
+  <ellipse cx="50" cy="40" rx="35" ry="6.5" opacity="0.55"/>
+</svg>

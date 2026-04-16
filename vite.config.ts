@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import svgr from "vite-plugin-svgr";
 import wasm from "vite-plugin-wasm";
 import topLevelAwait from "vite-plugin-top-level-await";
 
@@ -27,7 +28,7 @@ export default defineConfig({
       },
     },
   },
-  plugins: [react(), wasm(), topLevelAwait(), tailwindcss()],
+  plugins: [react(), svgr(), wasm(), topLevelAwait(), tailwindcss()],
   test: {
     environment: "jsdom",
     globals: true,

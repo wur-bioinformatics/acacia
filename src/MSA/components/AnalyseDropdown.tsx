@@ -1,9 +1,9 @@
 import type { JSX } from "react";
 import { useState } from "react";
-import type { NJConfig, DistanceResult } from "@holmrenser/nj";
+import type { NJConfig } from "@holmrenser/nj";
 import { useMSAStore } from "../stores/msaStore";
 import { useNJStore } from "../../NJ/njStore";
-import type { NJOptions } from "../../NJ";
+import { useNJWorker } from "../../NJ";
 import { useViewStore } from "../../viewStore";
 
 type SubstitutionModelOption = {
@@ -19,19 +19,8 @@ const SUBSTITUTION_MODELS: SubstitutionModelOption[] = [
   { value: "Poisson", label: "Poisson", description: "protein only" },
 ];
 
-type RunNJ = (options: NJOptions) => Promise<{
-  newick: string;
-  distanceMatrix: DistanceResult;
-  avgDistance: number;
-}>;
-
-export default function AnalyseDropdown({
-  id,
-  runNJ,
-}: {
-  id: string;
-  runNJ: RunNJ;
-}): JSX.Element {
+export default function AnalyseDropdown({ id }: { id: string }): JSX.Element {
+  const { runNJ } = useNJWorker();
   const { msaData } = useMSAStore();
   const {
     status: njStatus,

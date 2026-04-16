@@ -6,12 +6,13 @@ import { buildLayout, flattenTree, parseNewick } from "./layout";
 import type { LayoutNode } from "./types";
 import { useTreeStore } from "./treeStore";
 import { useSequenceStore } from "../sequenceStore";
-import { LABEL_WIDTH, MARGIN, RADIAL_LABEL_GAP } from "./constants";
-import useTreePanZoom from "./hooks/useTreePanZoom";
+import { DIVIDER_WIDTH, MARGIN, RADIAL_LABEL_GAP } from "./constants";
+import { useLabelDividerResize } from "./hooks/useLabelDividerResize";
 import NodePanel from "./components/NodePanel";
-import type { PanelState } from "./components/NodePanel";
+import type { PanelState } from "./types";
 import BranchPanel from "./components/BranchPanel";
 import Branches from "./components/Branches";
+import TreeLabels from "./components/TreeLabels";
 import TreeToolbar from "./components/TreeToolbar";
 import ScaleBar from "./components/ScaleBar";
 import NJStatusBar from "./components/NJStatusBar";
@@ -20,11 +21,7 @@ export default function Tree(): JSX.Element {
   const { newick, status, error } = useNJStore();
   const {
     layoutMode,
-    panX,
-    panY,
-    zoom,
     yStep,
-    widthScale,
     flatTree,
     collapsedNodes,
     selectedNodeId,
@@ -34,11 +31,12 @@ export default function Tree(): JSX.Element {
 
   const [containerRef, containerWidth] = useContainerWidth();
   const svgRef = useRef<SVGSVGElement>(null);
+  const { labelWidth, onMouseDown: onDividerMouseDown, onTouchStart: onDividerTouchStart } =
+    useLabelDividerResize();
 
   const [panel, setPanel] = useState<PanelState | null>(null);
   const [branchPanel, setBranchPanel] = useState<PanelState | null>(null);
 
-  // Close panel when selection is cleared (e.g. by rerootOnBranch in the store)
   useEffect(() => {
     if (!selectedNodeId) setPanel(null);
   }, [selectedNodeId]);
@@ -57,8 +55,8 @@ export default function Tree(): JSX.Element {
 
   const treeWidth =
     containerWidth > 0
-      ? Math.max(200, (containerWidth - MARGIN.left - LABEL_WIDTH - MARGIN.right) * widthScale)
-      : 560 * widthScale;
+      ? Math.max(200, containerWidth - MARGIN.left - MARGIN.right - DIVIDER_WIDTH - labelWidth)
+      : 560;
 
   const maxRadius = Math.min(treeWidth, 300) / 2;
 
@@ -66,8 +64,6 @@ export default function Tree(): JSX.Element {
     if (!flatTree) return null;
     return buildLayout(flatTree, layoutMode, yStep, maxRadius, collapsedNodes);
   }, [flatTree, layoutMode, yStep, collapsedNodes, maxRadius]);
-
-  const didDragRef = useTreePanZoom(svgRef, !!layoutResult);
 
   const handleNodeClick = useCallback(
     (node: LayoutNode, e: React.MouseEvent) => {
@@ -89,19 +85,16 @@ export default function Tree(): JSX.Element {
     setPanel(null);
   }, [setSelectedNodeId]);
 
-  const handleBranchClick = useCallback(
-    (node: LayoutNode, e: React.MouseEvent) => {
-      e.preventDefault();
-      setBranchPanel({
-        id: node.id,
-        isLeaf: node.children.length === 0,
-        leafName: node.children.length === 0 ? node.node.name : undefined,
-        x: e.clientX,
-        y: e.clientY,
-      });
-    },
-    [],
-  );
+  const handleBranchClick = useCallback((node: LayoutNode, e: React.MouseEvent) => {
+    e.preventDefault();
+    setBranchPanel({
+      id: node.id,
+      isLeaf: node.children.length === 0,
+      leafName: node.children.length === 0 ? node.node.name : undefined,
+      x: e.clientX,
+      y: e.clientY,
+    });
+  }, []);
 
   const handleCloseBranchPanel = useCallback(() => {
     setBranchPanel(null);
@@ -132,10 +125,7 @@ export default function Tree(): JSX.Element {
   const { root: layoutRoot, nLeaves, maxDepth } = layoutResult;
   const isRadial = layoutMode === "radial";
 
-  const svgWidth = Math.max(
-    containerWidth > 0 ? containerWidth : 800,
-    treeWidth + MARGIN.left + LABEL_WIDTH + MARGIN.right,
-  );
+  const svgWidth = MARGIN.left + treeWidth + MARGIN.right;
   const svgHeight = isRadial
     ? (maxRadius + RADIAL_LABEL_GAP + 60) * 2 + MARGIN.top + MARGIN.bottom
     : nLeaves * yStep + MARGIN.top + MARGIN.bottom;
@@ -144,28 +134,28 @@ export default function Tree(): JSX.Element {
   const radCx = maxRadius + RADIAL_LABEL_GAP + 40;
   const radCy = maxRadius + RADIAL_LABEL_GAP + 40;
 
+  const clearSelection = () => {
+    setSelectedNodeId(null);
+    setPanel(null);
+    setBranchPanel(null);
+  };
+
   return (
     <div ref={containerRef} className="flex flex-col gap-0 h-full">
       <TreeToolbar />
-      <div style={{ overflow: "hidden", flex: 1 }}>
-        <svg
-          ref={svgRef}
-          width={svgWidth}
-          height={svgHeight}
-          style={{
-            fontFamily: "ui-monospace, monospace",
-            touchAction: "none",
-            display: "block",
-          }}
-          onClick={() => {
-            if (!didDragRef.current) {
-              setSelectedNodeId(null);
-              setPanel(null);
-              setBranchPanel(null);
-            }
-          }}
-        >
-          <g transform={`translate(${panX}, ${panY}) scale(${zoom})`}>
+      <div style={{ overflowY: "auto", overflowX: "hidden", flex: 1 }}>
+        <div className="flex">
+          <svg
+            ref={svgRef}
+            width={svgWidth}
+            height={svgHeight}
+            style={{
+              fontFamily: '"Azeret Mono", ui-monospace, monospace',
+              display: "block",
+              flexShrink: 0,
+            }}
+            onClick={clearSelection}
+          >
             <g transform={`translate(${MARGIN.left}, ${MARGIN.top})`}>
               {isRadial ? (
                 <Branches
@@ -178,7 +168,6 @@ export default function Tree(): JSX.Element {
                   maxRadius={maxRadius}
                   onNodeClick={handleNodeClick}
                   onBranchClick={handleBranchClick}
-                  didDragRef={didDragRef}
                 />
               ) : (
                 <>
@@ -191,7 +180,6 @@ export default function Tree(): JSX.Element {
                     treeWidth={treeWidth}
                     onNodeClick={handleNodeClick}
                     onBranchClick={handleBranchClick}
-                    didDragRef={didDragRef}
                   />
                   {maxDepth > 0 && (
                     <ScaleBar
@@ -203,23 +191,41 @@ export default function Tree(): JSX.Element {
                 </>
               )}
             </g>
-          </g>
-        </svg>
+          </svg>
+
+          {!isRadial && (
+            <>
+              <div
+                className="group"
+                onMouseDown={onDividerMouseDown}
+                onTouchStart={onDividerTouchStart}
+                style={{
+                  width: DIVIDER_WIDTH,
+                  flexShrink: 0,
+                  cursor: "col-resize",
+                  display: "flex",
+                  alignItems: "stretch",
+                  justifyContent: "center",
+                }}
+              >
+                <div className="w-px bg-base-300 group-hover:bg-primary transition-colors" />
+              </div>
+              <TreeLabels
+                layoutRoot={layoutRoot}
+                yStep={yStep}
+                labelWidth={labelWidth}
+                svgHeight={svgHeight}
+              />
+            </>
+          )}
+        </div>
       </div>
 
       {panel && (
-        <NodePanel
-          panel={panel}
-          layoutRoot={layoutRoot}
-          onClose={handleClosePanel}
-        />
+        <NodePanel panel={panel} layoutRoot={layoutRoot} onClose={handleClosePanel} />
       )}
       {branchPanel && (
-        <BranchPanel
-          panel={branchPanel}
-          layoutRoot={layoutRoot}
-          onClose={handleCloseBranchPanel}
-        />
+        <BranchPanel panel={branchPanel} layoutRoot={layoutRoot} onClose={handleCloseBranchPanel} />
       )}
 
       <NJStatusBar />

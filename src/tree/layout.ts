@@ -61,7 +61,7 @@ export function flattenTree(root: TreeNode): FlatTree {
 
   const rootId = dfs(root, null);
   computeFlatLeafCounts(nodes, rootId);
-  return { nodes, rootId, originalRootId: rootId, leafOrder };
+  return { nodes, rootId, originalRootId: rootId, isRerooted: false, leafOrder };
 }
 
 function computeFlatLeafCounts(nodes: Map<NodeId, FlatNode>, rootId: NodeId): void {
@@ -113,6 +113,15 @@ export function rerootFlat(tree: FlatTree, targetId: NodeId): FlatTree {
 
   // Reverse parent/child pointers along the path.
   // path = [target, p1, p2, ..., oldRoot]
+  //
+  // Rules:
+  //   i === 0 (target): remove target from parent's children; do NOT add parent to
+  //     target's children — target keeps its own subtree unchanged.
+  //   0 < i < path.length-2 (internal path node): full reversal — remove from parent,
+  //     add parent as child.
+  //   i === path.length-2 (last step, parentId === oldRoot): remove path-child from
+  //     oldRoot; do NOT add oldRoot to path-child's children (oldRoot is repurposed).
+  //     Instead, transfer oldRoot's remaining children to path-child below.
   const halfLen = newNodes.get(targetId)!.length / 2;
 
   for (let i = 0; i < path.length - 1; i++) {
@@ -121,13 +130,15 @@ export function rerootFlat(tree: FlatTree, targetId: NodeId): FlatTree {
     const childNode = newNodes.get(childId)!;
     const parentNode = newNodes.get(parentId)!;
 
-    // Remove childId from parent's children; add parentId to child's children.
     parentNode.childIds = parentNode.childIds.filter((id) => id !== childId);
-    childNode.childIds = [...childNode.childIds, parentId];
-    // The parent now hangs off the child; give it the length the child used to have.
+
+    if (i > 0 && i < path.length - 2) {
+      // Internal path node: add former parent as a new child (reversal).
+      childNode.childIds = [...childNode.childIds, parentId];
+    }
+
     parentNode.length = childNode.length;
-    // Child's length will be set below (only target gets halfLen).
-    childNode.parentId = null; // will be fixed when we set up the new virtual root
+    childNode.parentId = null; // will be fixed below
   }
 
   // Repurpose the old root as the new virtual root between target and its old parent.
@@ -135,22 +146,45 @@ export function rerootFlat(tree: FlatTree, targetId: NodeId): FlatTree {
   const oldRootNode = newNodes.get(rootId)!;
   const targetNode = newNodes.get(targetId)!;
 
-  // New virtual root: two children = [target, targetParent]
+  // oldRoot's remaining children (non-path siblings) must be rehomed to the node that was
+  // the immediate child of oldRoot on the path (path[path.length-2]), so they are not lost.
+  // When path.length === 2 targetParentId === rootId so oldRoot IS the new virtual root and
+  // those children simply stay put.
+  if (path.length > 2) {
+    const lastPathChild = path[path.length - 2]; // immediate child of oldRoot on the path
+    const orphans = oldRootNode.childIds; // path-child was already removed by loop
+    for (const cid of orphans) {
+      newNodes.get(cid)!.parentId = lastPathChild;
+    }
+    newNodes.get(lastPathChild)!.childIds = [...newNodes.get(lastPathChild)!.childIds, ...orphans];
+    oldRootNode.childIds = [targetId, targetParentId];
+  } else {
+    // path.length === 2: targetParentId === rootId, old root stays as virtual root.
+    oldRootNode.childIds = [targetId, ...oldRootNode.childIds]; // childIds already has target removed
+  }
+
   oldRootNode.name = "";
   oldRootNode.length = 0;
   oldRootNode.parentId = null;
-  oldRootNode.childIds = [targetId, targetParentId];
 
-  // target gets halfLen, old parent (now a child of root) keeps the other half
   targetNode.length = halfLen;
   targetNode.parentId = rootId;
-  newNodes.get(targetParentId)!.length = halfLen;
-  newNodes.get(targetParentId)!.parentId = rootId;
+
+  if (path.length > 2) {
+    newNodes.get(targetParentId)!.length = halfLen;
+    newNodes.get(targetParentId)!.parentId = rootId;
+  }
+
+  // Fix parentId for intermediate path nodes (path[2] .. path[path.length-2]).
+  // The loop set them all to null but only target and targetParent are fixed above.
+  for (let k = 2; k <= path.length - 2; k++) {
+    newNodes.get(path[k])!.parentId = path[k - 1];
+  }
 
   // Recompute leafCount bottom-up (unavoidable after reroot).
   computeFlatLeafCounts(newNodes, rootId);
 
-  return { nodes: newNodes, rootId, originalRootId: tree.originalRootId, leafOrder: tree.leafOrder };
+  return { nodes: newNodes, rootId, originalRootId: tree.originalRootId, isRerooted: true, leafOrder: tree.leafOrder };
 }
 
 // ---------------------------------------------------------------------------
@@ -168,6 +202,16 @@ export function rotateFlat(tree: FlatTree, targetId: NodeId): FlatTree {
 }
 
 // ---------------------------------------------------------------------------
+// Branch key helpers
+// ---------------------------------------------------------------------------
+
+export function branchKey(node: LayoutNode): string {
+  return node.children.length === 0
+    ? `branch:leaf:${node.node.name}`
+    : `branch:${node.id}`;
+}
+
+// ---------------------------------------------------------------------------
 // Layout result type
 // ---------------------------------------------------------------------------
 
@@ -181,7 +225,7 @@ export type LayoutResult = {
 // Rectangular (phylogram) layout
 // ---------------------------------------------------------------------------
 
-export function buildRectLayout(
+function buildRectLayout(
   flatNodes: Map<NodeId, FlatNode>,
   rootId: NodeId,
   yStep: number,
@@ -217,7 +261,7 @@ export function buildRectLayout(
 // Cladogram layout (equal branch lengths, all leaves aligned)
 // ---------------------------------------------------------------------------
 
-export function buildCladogramLayout(
+function buildCladogramLayout(
   flatNodes: Map<NodeId, FlatNode>,
   rootId: NodeId,
   yStep: number,
@@ -265,7 +309,7 @@ export function buildCladogramLayout(
 // Radial layout
 // ---------------------------------------------------------------------------
 
-export function buildRadialLayout(
+function buildRadialLayout(
   flatNodes: Map<NodeId, FlatNode>,
   rootId: NodeId,
   maxRadius: number,

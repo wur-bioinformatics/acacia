@@ -2,7 +2,8 @@ import { useEffect, useRef } from "react";
 import { DrawOptions, MSAData } from "../types";
 
 import workerUrl from "../canvasWorker?worker&url";
-import type { InitMessage, SetMSAMessage, RedrawMessage } from "../types";
+import type { InitMessage, SetMSAMessage, RedrawMessage, DragPreviewMessage } from "../types";
+import { useDrawStore } from "../stores/drawStore";
 
 /**
  * Custom React hook that manages a dedicated Web Worker for rendering to a canvas (via OffscreenCanvas).
@@ -67,9 +68,7 @@ export default function useMainCanvasWorker({
     if (!canvasRef) return;
     if (!workerRef.current) {
       workerRef.current = new Worker(workerUrl, { type: "module" });
-      workerRef.current.onmessage = (ev: MessageEvent) => {
-        console.log(ev.data);
-      };
+      workerRef.current.onmessage = () => {};
     }
 
     if (!hasTransferred.current && canvasRef.current) {
@@ -105,4 +104,22 @@ export default function useMainCanvasWorker({
     };
     workerRef.current.postMessage(message);
   }, [drawOptions, isMinimap, canvasWidth, canvasHeight]);
+
+  useEffect(() => {
+    // Subscribe to dragState changes outside React render cycles so the
+    // worker receives preview messages on every row-boundary crossing.
+    let prev = useDrawStore.getState().dragState;
+    const unsubscribe = useDrawStore.subscribe((state) => {
+      if (state.dragState === prev) return;
+      prev = state.dragState;
+      if (!workerRef.current) return;
+      const message: DragPreviewMessage = {
+        type: "dragPreview",
+        dragIndex: state.dragState?.dragIndex ?? null,
+        hoverIndex: state.dragState?.hoverIndex ?? null,
+      };
+      workerRef.current.postMessage(message);
+    });
+    return unsubscribe;
+  }, []);
 }

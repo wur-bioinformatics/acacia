@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import React from "react";
+import { Fragment } from "react";
 import { COLOR_SCHEME_GROUPS, DEFAULT_COLOR_SCHEME } from "../colourSchemes";
 import { useDrawStore } from "../stores/drawStore";
 import { useMSAStore } from "../stores/msaStore";
@@ -145,7 +145,7 @@ export default function ViewDropdown({ id }: { id: string }): JSX.Element {
           {COLOR_SCHEME_GROUPS.map((group) => {
             const groupDisabled = group.type !== null && group.type !== effectiveType;
             return (
-              <React.Fragment key={group.label}>
+              <Fragment key={group.label}>
                 <li className={`menu-title text-xs pt-2 ${groupDisabled ? "opacity-30" : ""}`}>
                   {group.label}
                 </li>
@@ -164,7 +164,7 @@ export default function ViewDropdown({ id }: { id: string }): JSX.Element {
                     </label>
                   </li>
                 ))}
-              </React.Fragment>
+              </Fragment>
             );
           })}
         </ul>

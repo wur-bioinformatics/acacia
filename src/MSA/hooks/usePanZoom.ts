@@ -52,12 +52,15 @@ export default function usePanZoom({
   const {
     drawOptions: { scale, cellSize },
     setDrawOptions,
+    interactionMode,
   } = useDrawStore();
   const { mainOverlayCanvas: canvas } = useCanvasContext();
   const isDragging = useRef(false);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
   const pinchStartDist = useRef(0);
   const pinchStartScale = useRef(scale);
+  const interactionModeRef = useRef(interactionMode);
+  interactionModeRef.current = interactionMode;
 
   const clampScale = useCallback(
     (newScale: number): number => {
@@ -112,8 +115,10 @@ export default function usePanZoom({
       Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
 
     const onMouseDown = (e: MouseEvent) => {
+      if (interactionModeRef.current !== "hand") return;
       isDragging.current = true;
       lastPos.current = { x: e.clientX, y: e.clientY };
+      canvas.style.cursor = "grabbing";
     };
 
     const onMouseMove = (e: MouseEvent) => {
@@ -125,8 +130,10 @@ export default function usePanZoom({
     };
 
     const onMouseUp = () => {
+      if (!isDragging.current) return;
       isDragging.current = false;
       lastPos.current = null;
+      canvas.style.cursor = "grab";
     };
 
     const onWheel = (e: WheelEvent) => {
@@ -231,4 +238,14 @@ export default function usePanZoom({
       canvas.removeEventListener("touchend", onTouchEnd);
     };
   }, [canvas, scale, setDrawOptions, panBy, clampScale, clampPan]);
+
+  // Sync cursor to interaction mode
+  useEffect(() => {
+    if (!canvas) return;
+    canvas.style.cursor = interactionMode === "hand" ? "grab" : "crosshair";
+    if (interactionMode !== "hand") {
+      isDragging.current = false;
+      lastPos.current = null;
+    }
+  }, [canvas, interactionMode]);
 }

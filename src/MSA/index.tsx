@@ -1,4 +1,5 @@
 import { useMemo, type JSX } from "react";
+import { AcaciaBrand } from "../AcaciaLogo";
 import { useSequenceStore } from "../sequenceStore";
 
 import "./styles.css";
@@ -100,6 +101,10 @@ function MSAInput() {
   }
   return (
     <div className="flex flex-col items-center gap-3 py-16">
+      <AcaciaBrand size={56} className="opacity-80 mb-2" />
+      <p className="text-sm opacity-40 mb-2">
+        Explore sequence alignments and phylogenetic trees in a web browser.
+      </p>
       <label className="flex flex-col items-center gap-2 px-12 py-10 border-2 border-dashed border-base-300 rounded-2xl cursor-pointer hover:border-primary transition-colors group">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -141,22 +146,33 @@ function MSAInner(): JSX.Element {
   const { msaData } = useMSAStore();
   const { order } = useSequenceStore();
   const { status: njStatus, progress } = useNJStore();
-  const { drawOptions: { showLabels, showConsensus, offsetY, colorStyle } } = useDrawStore();
+  const {
+    drawOptions: { showLabels, showConsensus, offsetY, colorStyle },
+  } = useDrawStore();
 
   const orderedMsaData = useMemo<MSAData>(() => {
     if (order.length === 0) return msaData;
     const byId = new Map(msaData.map((s) => [s.identifier, s]));
-    return order.map((id) => byId.get(id)).filter((s) => s !== undefined) as MSAData;
+    return order
+      .map((id) => byId.get(id))
+      .filter((s) => s !== undefined) as MSAData;
   }, [order, msaData]);
 
   const nRows = orderedMsaData.length;
   const nCols = orderedMsaData[0]?.sequence.length ?? 0;
-  const analysis = useMemo(() => orderedMsaData.length > 0 ? analyseMSAColumns(orderedMsaData) : null, [orderedMsaData]);
+  const analysis = useMemo(
+    () =>
+      orderedMsaData.length > 0 ? analyseMSAColumns(orderedMsaData) : null,
+    [orderedMsaData],
+  );
 
   usePanZoom({ nRows, nCols });
 
-  const { labelWidth, onMouseDown: onDividerMouseDown, onTouchStart: onDividerTouchStart } =
-    useLabelDividerResize();
+  const {
+    labelWidth,
+    onMouseDown: onDividerMouseDown,
+    onTouchStart: onDividerTouchStart,
+  } = useLabelDividerResize();
 
   const DIVIDER_WIDTH = 8;
   const effectiveLabelWidth = showLabels ? labelWidth : 0;
@@ -222,7 +238,10 @@ function MSAInner(): JSX.Element {
               {nRows} sequences · {nCols} sites
             </span>
             {analysis && colorStyle === "Parsimony Informative" && (
-              <span>{analysis.parsimonyInformativeSites.length} parsimony informative</span>
+              <span>
+                {analysis.parsimonyInformativeSites.length} parsimony
+                informative
+              </span>
             )}
             {analysis && colorStyle === "Conserved" && (
               <span>{analysis.conservedSites.length} conserved</span>

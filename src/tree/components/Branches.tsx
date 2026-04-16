@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { truncate } from "../layout";
+import { branchKey, truncate } from "../layout";
 import type {
   BranchesProps,
   LayoutNode,
@@ -9,13 +9,6 @@ import type {
 import { useTreeStore } from "../treeStore";
 import { RADIAL_LABEL_GAP } from "../constants";
 import NodeCircle from "./NodeCircle";
-
-// Branch style key: stable for leaf branches, path-based for internal branches
-function branchKey(node: LayoutNode): string {
-  return node.children.length === 0
-    ? `branch:leaf:${node.node.name}`
-    : `branch:${node.id}`;
-}
 
 // ---------------------------------------------------------------------------
 // Geometry helpers
@@ -101,19 +94,7 @@ function rectGeometry(props: BranchesProps & RectGeomProps): Geometry {
         />
       );
     },
-    leafLabel: (n, nPos, color, fontWeight) => (
-      <text
-        key={`lbl-${n.id}`}
-        x={treeWidth + 24}
-        y={nPos.y}
-        fontSize={12}
-        fill={color}
-        dominantBaseline="central"
-        fontWeight={fontWeight}
-      >
-        {truncate(n.node.name)}
-      </text>
-    ),
+    leafLabel: () => <></>,
     bootstrapPos: (nPos: Point): Point => ({ x: nPos.x + 4.5, y: nPos.y + 3 }),
     childGeomProps: () => ({
       mode: "rect",
@@ -201,7 +182,7 @@ function computeGeometry(props: BranchesProps): Geometry {
 // ---------------------------------------------------------------------------
 
 export default function Branches(props: BranchesProps): JSX.Element {
-  const { node, isRoot, onNodeClick, onBranchClick, didDragRef } = props;
+  const { node, isRoot, onNodeClick, onBranchClick } = props;
 
   const isLeaf = node.children.length === 0;
   const styleKey = isLeaf ? `leaf:${node.node.name}` : node.id;
@@ -211,7 +192,6 @@ export default function Branches(props: BranchesProps): JSX.Element {
   const isCollapsed = useTreeStore((s) => s.collapsedNodes.has(node.id));
   const isSelected = useTreeStore((s) => s.selectedNodeId === node.id);
   const showBootstrap = useTreeStore((s) => s.showBootstrap);
-  const yStep = useTreeStore((s) => s.yStep);
 
   const branchCol = branchStyleColor ?? styleColor ?? "#333";
   const labelColor = styleColor ?? "#111";
@@ -226,25 +206,10 @@ export default function Branches(props: BranchesProps): JSX.Element {
   const showExtLine = props.mode === "rect" && isLeaf && !isCollapsed;
   const treeWidth = props.mode === "rect" ? props.treeWidth : 0;
 
-  // Collapsed label (shared between rect and radial with mode-specific positioning)
+  // Collapsed label: rect mode handled by TreeLabels DOM component; radial stays in SVG
   const collapseLabel = (() => {
     if (!isCollapsed) return null;
-    if (props.mode === "rect") {
-      return (
-        <text
-          key={`trlbl-${node.id}`}
-          x={treeWidth + 6}
-          y={nodePos.y}
-          fontSize={11}
-          fill={labelColor}
-          dominantBaseline="central"
-          fontWeight={fontWeight}
-          fontStyle="italic"
-        >
-          {node.leafCount} sequences
-        </text>
-      );
-    }
+    if (props.mode === "rect") return null;
     // radial
     const angle = node.angle ?? 0;
     const { cx, cy, maxRadius } = props as RadialGeomProps;
@@ -298,7 +263,6 @@ export default function Branches(props: BranchesProps): JSX.Element {
             strokeWidth={8}
             style={{ cursor: "pointer" }}
             onClick={(e) => {
-              if (didDragRef.current) return;
               e.stopPropagation();
               onBranchClick(node, e);
             }}
@@ -315,7 +279,7 @@ export default function Branches(props: BranchesProps): JSX.Element {
         </>
       )}
       {!isCollapsed && geom.childConnector(node, branchCol)}
-      {!isCollapsed && showBootstrap && node.node.name && !isRoot && (
+      {!isCollapsed && showBootstrap && node.node.name && !isRoot && !isLeaf && (
         <text
           key={`bs-${node.id}`}
           x={bootstrapPos.x}
@@ -335,12 +299,11 @@ export default function Branches(props: BranchesProps): JSX.Element {
             isRoot={false}
             onNodeClick={onNodeClick}
             onBranchClick={onBranchClick}
-            didDragRef={didDragRef}
             {...geom.childGeomProps(child)}
           />
         ))}
       {isCollapsed && geom.collapseTriangle(node, nodePos, fillCol)}
-      {isCollapsed &&
+      {isLeaf &&
         (isCollapsed
           ? collapseLabel
           : geom.leafLabel(node, nodePos, labelColor, fontWeight))}
@@ -363,7 +326,6 @@ export default function Branches(props: BranchesProps): JSX.Element {
         r={isLeaf ? 2 : 3}
         isSelected={isSelected}
         color={circleColor}
-        didDragRef={didDragRef}
         onClick={(e) => onNodeClick(node, e)}
       />
     </>

@@ -1,2 +1,10 @@
+@import "@fontsource/azeret-mono/400.css";
+@import "@fontsource/azeret-mono/900.css";
+@import "@fontsource/azeret-mono/400-italic.css";
+@import "@fontsource/azeret-mono/900-italic.css";
 @import "tailwindcss";
 @plugin "daisyui";
+
+@theme {
+  --font-mono: "Azeret Mono", ui-monospace, monospace;
+}

@@ -1,15 +1,8 @@
 import { useEffect, useRef } from "react";
 import type { JSX } from "react";
-import { findLayoutNode, getSubtreeNodes } from "../layout";
-import type { LayoutNode } from "../types";
+import { branchKey, findLayoutNode, getSubtreeNodes } from "../layout";
+import type { LayoutNode, PanelState } from "../types";
 import { useTreeStore } from "../treeStore";
-import type { PanelState } from "./NodePanel";
-
-function branchKey(node: LayoutNode): string {
-  return node.children.length === 0
-    ? `branch:leaf:${node.node.name}`
-    : `branch:${node.id}`;
-}
 
 export default function BranchPanel({
   panel,

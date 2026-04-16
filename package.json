@@ -21,6 +21,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource/azeret-mono": "^5.2.11",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -49,6 +50,7 @@
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.26.1",
     "vite": "^6.3.1",
+    "vite-plugin-svgr": "^5.2.0",
     "vite-plugin-top-level-await": "^1.5.0",
     "vite-plugin-wasm": "^3.4.1",
     "vitest": "^4.1.3",

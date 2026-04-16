@@ -4,16 +4,8 @@ import {
   findLayoutNode,
   getSubtreeNodes,
 } from "../layout";
-import type { LayoutNode } from "../types";
+import type { LayoutNode, PanelState } from "../types";
 import { useTreeStore } from "../treeStore";
-
-export type PanelState = {
-  id: string;
-  isLeaf: boolean;
-  leafName?: string;
-  x: number;
-  y: number;
-};
 
 export default function NodePanel({
   panel,

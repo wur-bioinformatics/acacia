@@ -2,7 +2,6 @@ import { nj, type NJEvent } from "@holmrenser/nj";
 import { NJMessage } from "./types";
 
 self.onmessage = (event: MessageEvent<NJMessage>) => {
-  postMessage("Worker received message: " + JSON.stringify(event.data));
   const {
     type,
     data: { njConfig },
@@ -28,4 +27,3 @@ self.onmessage = (event: MessageEvent<NJMessage>) => {
     }
   }
 };
-postMessage("loaded");

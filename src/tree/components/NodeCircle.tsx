@@ -6,7 +6,6 @@ type NodeCircleProps = {
   r: number;
   isSelected: boolean;
   color: string;
-  didDragRef: React.RefObject<boolean>;
   onClick: (e: React.MouseEvent<SVGCircleElement>) => void;
 };
 
@@ -16,7 +15,6 @@ export default function NodeCircle({
   r,
   isSelected,
   color,
-  didDragRef,
   onClick,
 }: NodeCircleProps): JSX.Element {
   return (
@@ -29,7 +27,6 @@ export default function NodeCircle({
       strokeWidth={2}
       style={{ cursor: "pointer" }}
       onClick={(e) => {
-        if (didDragRef.current) return;
         e.stopPropagation();
         onClick(e);
       }}

@@ -17,14 +17,18 @@ export default function useOverlay({
   height,
   nCols,
 }: Params) {
-  const { drawOptions, setDrawOptions } = useDrawStore();
+  const { drawOptions, setDrawOptions, interactionMode, setHoverRow } = useDrawStore();
   const { offsetX, offsetY, scale } = drawOptions;
 
   // Keep a ref so minimap drag handlers always see latest values
   const drawOptionsRef = useRef(drawOptions);
   drawOptionsRef.current = drawOptions;
+  const interactionModeRef = useRef(interactionMode);
+  interactionModeRef.current = interactionMode;
+  const setHoverRowRef = useRef(setHoverRow);
+  setHoverRowRef.current = setHoverRow;
 
-  // Main canvas: column/row highlight on mousemove
+  // Main canvas: column/row highlight on mousemove (pointer mode only)
   useEffect(() => {
     const overlayCanvas = overlayRef.current;
     if (!overlayCanvas || isMinimap) return;
@@ -32,10 +36,19 @@ export default function useOverlay({
     if (!ctx) return;
 
     const handleMouseMove = (e: MouseEvent) => {
+      if (interactionModeRef.current !== "pointer") {
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        return;
+      }
+      const { offsetX, offsetY, scale, showConsensus } = drawOptionsRef.current;
       const x = e.offsetX;
       const y = e.offsetY;
       const col = Math.floor((x - offsetX) / (CELL_SIZE * scale));
       const row = Math.floor((y - offsetY) / CELL_SIZE);
+
+      // Map visual row to data row (skip consensus row at index 0)
+      const dataRow = showConsensus ? row - 1 : row;
+      setHoverRowRef.current(dataRow >= 0 ? dataRow : null);
 
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
       ctx.strokeStyle = "rgba(48,92,222,0.6)";
@@ -47,8 +60,17 @@ export default function useOverlay({
       ctx.strokeRect(col * CELL_SIZE * scale + offsetX, 0, CELL_SIZE * scale, height);
     };
 
+    const handleMouseLeave = () => {
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      setHoverRowRef.current(null);
+    };
+
     overlayCanvas.addEventListener("mousemove", handleMouseMove);
-    return () => overlayCanvas.removeEventListener("mousemove", handleMouseMove);
+    overlayCanvas.addEventListener("mouseleave", handleMouseLeave);
+    return () => {
+      overlayCanvas.removeEventListener("mousemove", handleMouseMove);
+      overlayCanvas.removeEventListener("mouseleave", handleMouseLeave);
+    };
   }, [scale, offsetX, offsetY, isMinimap, overlayRef, height, width]);
 
   // Minimap: viewport box drawing (runs every render when isMinimap)
@@ -162,6 +184,15 @@ export default function useOverlay({
 
     const onMouseUp = () => { drag = null; };
 
+    const onClick = (e: MouseEvent) => {
+      const mx = e.offsetX;
+      const { boxLeft, boxRight } = getBox();
+      if (mx >= boxLeft - EDGE && mx <= boxRight + EDGE) return;
+      const { scale } = drawOptionsRef.current;
+      const newOffsetX = clampOffsetX(W / 2 - (mx / scaleX) * scale, scale);
+      setDrawOptions((prev) => ({ ...prev, offsetX: newOffsetX }));
+    };
+
     const onTouchStart = (e: TouchEvent) => {
       e.preventDefault();
       const rect = overlayCanvas.getBoundingClientRect();
@@ -205,6 +236,7 @@ export default function useOverlay({
 
     overlayCanvas.addEventListener("mousedown", onMouseDown);
     overlayCanvas.addEventListener("mousemove", onCanvasMouseMove);
+    overlayCanvas.addEventListener("click", onClick);
     window.addEventListener("mousemove", onWindowMouseMove);
     window.addEventListener("mouseup", onMouseUp);
     overlayCanvas.addEventListener("touchstart", onTouchStart, { passive: false });
@@ -213,6 +245,7 @@ export default function useOverlay({
     return () => {
       overlayCanvas.removeEventListener("mousedown", onMouseDown);
       overlayCanvas.removeEventListener("mousemove", onCanvasMouseMove);
+      overlayCanvas.removeEventListener("click", onClick);
       window.removeEventListener("mousemove", onWindowMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
       overlayCanvas.removeEventListener("touchstart", onTouchStart);

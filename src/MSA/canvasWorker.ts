@@ -1,3 +1,4 @@
+import azeretMonoUrl from "@fontsource/azeret-mono/files/azeret-mono-latin-400-normal.woff2?url";
 import {
   MSAData,
   CanvasMessage,
@@ -39,11 +40,12 @@ class CanvasDrawer {
     highlightUseRegex: false,
   };
   private isMinimap: boolean = false;
+  private dragIndex: number | null = null;
+  private hoverIndex: number | null = null;
 
   init(canvas: OffscreenCanvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
-    postMessage("Initialized worker");
   }
 
   setMSAData(msaData: MSAData) {
@@ -55,14 +57,10 @@ class CanvasDrawer {
   updateDrawSettings(options: DrawOptions, isMinimap: boolean) {
     this.isMinimap = isMinimap;
     this.options = options;
-    this.highlightCols = this.computeHighlightCols(options);
+    this.computeHighlightCols(options);
   }
 
-  // Returns a Set of column indices that should be highlighted across ALL rows,
-  // plus a per-row map for row-specific matches (sequence-level).
-  // We highlight every cell in a column if ANY row matches at that column.
-  private highlightCols: Set<number> = new Set();
-  // Per-row sets: row index → Set of col indices
+  // Per-row sets: row index → Set of col indices that should be highlighted
   private highlightColsByRow: Map<number, Set<number>> = new Map();
 
   private computeHighlightCols(options: DrawOptions): Set<number> {
@@ -113,6 +111,11 @@ class CanvasDrawer {
     }
 
     return allCols;
+  }
+
+  setDragPreview(dragIndex: number | null, hoverIndex: number | null) {
+    this.dragIndex = dragIndex;
+    this.hoverIndex = hoverIndex;
   }
 
   resize(width: number, height: number) {
@@ -242,7 +245,7 @@ class CanvasDrawer {
         );
         if (showLetters && drawLetters && !this.isMinimap) {
           ctx.fillStyle = "black";
-          ctx.font = `bold ${cellSize * 0.6}px monospace`;
+          ctx.font = `bold ${cellSize * 0.6}px "Azeret Mono", monospace`;
           ctx.textBaseline = "middle";
           ctx.textAlign = "center";
           ctx.fillText(char, col * cellSize + cellSize / 2, cellSize / 2);
@@ -252,9 +255,36 @@ class CanvasDrawer {
 
     // Sequence rows
     const hasHighlight = this.highlightColsByRow.size > 0;
+    const dragIndex = this.dragIndex;
+    const dragHover = this.hoverIndex;
+    const hasDrag =
+      dragIndex !== null && dragHover !== null && dragIndex !== dragHover;
+
     for (let row = 0; row < nRows; row++) {
       const drawRow = showConsensus ? row + 1 : row;
-      const rowHighlight = hasHighlight ? this.highlightColsByRow.get(row) : undefined;
+
+      // Compute effective draw row and alpha for drag preview
+      let effectiveDrawRow = drawRow;
+      let rowAlpha = 1;
+      if (hasDrag) {
+        if (row === dragIndex) {
+          // Draw dragged row at the destination (hover) position, dimmed
+          effectiveDrawRow = showConsensus ? dragHover! + 1 : dragHover!;
+          rowAlpha = 0.5;
+        } else if (dragIndex! < dragHover!) {
+          if (row > dragIndex! && row <= dragHover!)
+            effectiveDrawRow = drawRow - 1;
+        } else {
+          if (row >= dragHover! && row < dragIndex!)
+            effectiveDrawRow = drawRow + 1;
+        }
+      }
+
+      if (rowAlpha !== 1) ctx.globalAlpha = rowAlpha;
+
+      const rowHighlight = hasHighlight
+        ? this.highlightColsByRow.get(row)
+        : undefined;
       for (let col = startCol; col < endCol; col++) {
         const char = this.msaData[row].sequence[col];
         const consensusChar = consensus[col];
@@ -262,7 +292,7 @@ class CanvasDrawer {
           showConsensus && char.toUpperCase() === consensusChar?.toUpperCase();
 
         if (hasHighlight) {
-          ctx.fillStyle = rowHighlight?.has(col) ? "#FFE000" : "#e0e0e0";
+          ctx.fillStyle = rowHighlight?.has(col) ? "#FFE000" : "#f4f4f4";
         } else {
           ctx.fillStyle = charToColor(
             char,
@@ -273,7 +303,7 @@ class CanvasDrawer {
         }
         ctx.fillRect(
           col * cellSize,
-          drawRow * cellSize,
+          effectiveDrawRow * cellSize,
           cellSize * CELL_FILL_RATIO,
           cellSize * CELL_FILL_RATIO,
         );
@@ -281,25 +311,30 @@ class CanvasDrawer {
         if (showLetters && drawLetters && !this.isMinimap) {
           const label = matchesConsensus ? "·" : char;
           ctx.fillStyle = "black";
-          ctx.font = `${cellSize * 0.6}px monospace`;
+          ctx.font = `${cellSize * 0.6}px "Azeret Mono", monospace`;
           ctx.textBaseline = "middle";
           ctx.textAlign = "center";
           ctx.fillText(
             label,
             col * cellSize + cellSize / 2,
-            drawRow * cellSize + cellSize / 2,
+            effectiveDrawRow * cellSize + cellSize / 2,
           );
         }
       }
+
+      if (rowAlpha !== 1) ctx.globalAlpha = 1;
     }
 
     ctx.restore();
   }
 }
 
-postMessage("loaded");
-
 const drawer = new CanvasDrawer();
+
+const fontFace = new FontFace("Azeret Mono", `url(${azeretMonoUrl})`);
+fontFace.load().then((loaded) => {
+  (self as unknown as { fonts: FontFaceSet }).fonts.add(loaded);
+});
 
 self.onmessage = (e: MessageEvent<CanvasMessage>) => {
   const { type } = e.data;
@@ -313,6 +348,9 @@ self.onmessage = (e: MessageEvent<CanvasMessage>) => {
     const { drawOptions, isMinimap, canvasWidth, canvasHeight } = e.data;
     drawer.resize(canvasWidth, canvasHeight);
     drawer.updateDrawSettings(drawOptions, isMinimap);
+    drawer.redraw();
+  } else if (type === "dragPreview") {
+    drawer.setDragPreview(e.data.dragIndex, e.data.hoverIndex);
     drawer.redraw();
   }
 };

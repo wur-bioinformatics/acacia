@@ -1,4 +1,5 @@
 export type SequenceType = "DNA" | "Protein";
+export type InteractionMode = "pointer" | "hand";
 
 export const COLORSTYLES = [
   "DNA",
@@ -56,4 +57,9 @@ export type RedrawMessage = {
   canvasWidth: number;
   canvasHeight: number;
 };
-export type CanvasMessage = InitMessage | RedrawMessage | SetMSAMessage;
+export type DragPreviewMessage = {
+  type: "dragPreview";
+  dragIndex: number | null;
+  hoverIndex: number | null;
+};
+export type CanvasMessage = InitMessage | RedrawMessage | SetMSAMessage | DragPreviewMessage;

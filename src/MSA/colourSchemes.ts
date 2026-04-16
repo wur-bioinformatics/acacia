@@ -1,4 +1,9 @@
-import type { ColorStyle, MSAColumnAnalysis, MSAData, SequenceType } from "./types";
+import type {
+  ColorStyle,
+  MSAColumnAnalysis,
+  MSAData,
+  SequenceType,
+} from "./types";
 
 // DNA – default ACGT
 export const dnaColorMap = new Map([
@@ -78,8 +83,16 @@ export const COLOR_SCHEME_GROUPS: {
   type: SequenceType | null;
 }[] = [
   { label: "DNA", schemes: ["DNA", "DNA ClustalX"], type: "DNA" },
-  { label: "Amino Acid", schemes: ["AA ClustalX", "AA Zappo", "AA Taylor"], type: "Protein" },
-  { label: "Analysis", schemes: ["Parsimony Informative", "Conserved", "Variable"], type: null },
+  {
+    label: "Amino Acid",
+    schemes: ["AA ClustalX", "AA Zappo", "AA Taylor"],
+    type: "Protein",
+  },
+  {
+    label: "Analysis",
+    schemes: ["Parsimony Informative", "Conserved", "Variable"],
+    type: null,
+  },
 ];
 
 export const DEFAULT_COLOR_SCHEME: Record<SequenceType, ColorStyle> = {
