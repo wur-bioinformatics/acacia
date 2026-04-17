@@ -38,18 +38,16 @@ function MSACanvas({
   width: number;
   msaData: MSAData;
 }): JSX.Element {
-  const { drawOptions } = useDrawStore();
   const { canvasRef, overlayRef } = useCanvasRefs({ isMinimap });
-  const { showConsensus } = drawOptions;
+  const showConsensus = useDrawStore((s) => s.drawOptions.showConsensus);
 
   const nCols = msaData[0].sequence.length;
   const nDataRows = msaData.length + (showConsensus ? 1 : 0);
   const mainHeight = isMinimap ? (heightProp ?? MINIMAP_HEIGHT) : nDataRows * CELL_SIZE;
 
-  useMainCanvasWorker({
+  const { isRendering } = useMainCanvasWorker({
     canvasRef,
     msaData,
-    drawOptions,
     isMinimap,
     canvasWidth: width,
     canvasHeight: mainHeight,
@@ -87,6 +85,22 @@ function MSACanvas({
           touchAction: "none",
         }}
       />
+      {!isMinimap && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 3,
+            pointerEvents: "none",
+            backgroundColor: "var(--color-base-100)",
+            opacity: isRendering ? 0.4 : 0,
+            transition: "opacity 0.15s ease 0.15s",
+          }}
+        />
+      )}
     </div>
   );
 }

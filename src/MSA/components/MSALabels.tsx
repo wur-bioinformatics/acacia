@@ -36,8 +36,8 @@ export default function MSALabels({
   width,
 }: Props): JSX.Element {
   const { moveSequence } = useSequenceStore();
-  const { setDragState, hoverRow, setHoverRow, interactionMode } = useDrawStore(
-    useShallow((s) => ({ setDragState: s.setDragState, hoverRow: s.hoverRow, setHoverRow: s.setHoverRow, interactionMode: s.interactionMode }))
+  const { setDragState, hoverRow, setHoverRow } = useDrawStore(
+    useShallow((s) => ({ setDragState: s.setDragState, hoverRow: s.hoverRow, setHoverRow: s.setHoverRow }))
   );
 
   const [dragging, setDragging] = useState<DragState | null>(null);
@@ -59,7 +59,6 @@ export default function MSALabels({
   }
 
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>, i: number) {
-    if (interactionMode !== "hand") return;
     e.currentTarget.setPointerCapture(e.pointerId);
     const rect = e.currentTarget.getBoundingClientRect();
     const containerRect = containerRef.current!.getBoundingClientRect();
@@ -164,7 +163,7 @@ export default function MSALabels({
                 whiteSpace: "nowrap",
                 paddingRight: 8,
                 textAlign: "right",
-                cursor: interactionMode === "pointer" ? "default" : dragging ? "grabbing" : "grab",
+                cursor: dragging ? "grabbing" : "grab",
                 opacity: isDragged ? 0 : (hoverRow === i ? 0.85 : 0.45),
                 background: hoverRow === i ? "rgba(48,92,222,0.15)" : undefined,
                 transform: `translateY(${shift}px)`,

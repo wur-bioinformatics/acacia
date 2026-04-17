@@ -290,13 +290,16 @@ self.onmessage = (e: MessageEvent<CanvasMessage>) => {
   } else if (type === "setMSA") {
     drawer.setMSAData(e.data.msaData);
     drawer.redraw();
+    self.postMessage({ type: "done" });
   } else if (type === "redraw") {
     const { drawOptions, isMinimap, canvasWidth, canvasHeight } = e.data;
     drawer.resize(canvasWidth, canvasHeight);
     drawer.updateDrawSettings(drawOptions, isMinimap);
     drawer.redraw();
+    self.postMessage({ type: "done" });
   } else if (type === "dragPreview") {
     drawer.setDragPreview(e.data.dragIndex, e.data.hoverIndex);
     drawer.redraw();
+    self.postMessage({ type: "done" });
   }
 };

@@ -1,5 +1,5 @@
 export type SequenceType = "DNA" | "Protein";
-export type InteractionMode = "pointer" | "hand";
+export type ScrollMode = "zoom" | "pan";
 export type TrackType = "conservation" | "logo";
 
 export const COLORSTYLES = [
@@ -64,4 +64,5 @@ export type DragPreviewMessage = {
   dragIndex: number | null;
   hoverIndex: number | null;
 };
-export type CanvasMessage = InitMessage | RedrawMessage | SetMSAMessage | DragPreviewMessage;
+export type DoneMessage = { type: "done" };
+export type CanvasMessage = InitMessage | RedrawMessage | SetMSAMessage | DragPreviewMessage | DoneMessage;

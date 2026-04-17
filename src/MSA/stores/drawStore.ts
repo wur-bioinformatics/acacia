@@ -1,11 +1,11 @@
 import { create } from "zustand";
-import type { DrawOptions, InteractionMode, SequenceType, TrackType } from "../types";
+import type { DrawOptions, ScrollMode, SequenceType, TrackType } from "../types";
 
 type DrawState = {
   drawOptions: DrawOptions;
   sequenceTypeOverride: SequenceType | null;
   dragState: { dragIndex: number; hoverIndex: number } | null;
-  interactionMode: InteractionMode;
+  scrollMode: ScrollMode;
   hoverRow: number | null;
   activeTrack: TrackType | null;
   setDrawOptions: (
@@ -13,7 +13,7 @@ type DrawState = {
   ) => void;
   setSequenceTypeOverride: (type: SequenceType | null) => void;
   setDragState: (state: { dragIndex: number; hoverIndex: number } | null) => void;
-  setInteractionMode: (mode: InteractionMode) => void;
+  setScrollMode: (mode: ScrollMode) => void;
   setHoverRow: (row: number | null) => void;
   setActiveTrack: (track: TrackType | null) => void;
 };
@@ -36,7 +36,7 @@ export const useDrawStore = create<DrawState>((set) => ({
   },
   sequenceTypeOverride: null,
   dragState: null,
-  interactionMode: "hand",
+  scrollMode: "zoom",
   hoverRow: null,
   activeTrack: null,
   setDrawOptions: (options) =>
@@ -48,7 +48,7 @@ export const useDrawStore = create<DrawState>((set) => ({
     })),
   setSequenceTypeOverride: (sequenceTypeOverride) => set({ sequenceTypeOverride }),
   setDragState: (dragState) => set({ dragState }),
-  setInteractionMode: (interactionMode) => set({ interactionMode }),
+  setScrollMode: (scrollMode) => set({ scrollMode }),
   setHoverRow: (hoverRow) => set({ hoverRow }),
   setActiveTrack: (activeTrack) => set({ activeTrack }),
 }));

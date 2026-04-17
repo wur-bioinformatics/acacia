@@ -17,14 +17,12 @@ export default function useOverlay({
   height,
   nCols,
 }: Params) {
-  const { drawOptions, setDrawOptions, interactionMode, setHoverRow } = useDrawStore();
+  const { drawOptions, setDrawOptions, setHoverRow } = useDrawStore();
   const { offsetX, offsetY, scale } = drawOptions;
 
   // Keep a ref so minimap drag handlers always see latest values
   const drawOptionsRef = useRef(drawOptions);
   drawOptionsRef.current = drawOptions;
-  const interactionModeRef = useRef(interactionMode);
-  interactionModeRef.current = interactionMode;
   const setHoverRowRef = useRef(setHoverRow);
   setHoverRowRef.current = setHoverRow;
 
@@ -36,10 +34,6 @@ export default function useOverlay({
     if (!ctx) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (interactionModeRef.current !== "pointer") {
-        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        return;
-      }
       const { offsetX, offsetY, scale, showConsensus } = drawOptionsRef.current;
       const x = e.offsetX;
       const y = e.offsetY;
