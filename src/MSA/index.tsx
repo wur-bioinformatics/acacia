@@ -1,4 +1,5 @@
 import { useMemo, type JSX } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { AcaciaBrand } from "../AcaciaLogo";
 import { useSequenceStore } from "../sequenceStore";
 
@@ -20,6 +21,9 @@ import useRowDividerResize from "./hooks/useRowDividerResize";
 import { useNJStore } from "../NJ/njStore";
 import { useContainerWidth } from "../hooks/useContainerWidth";
 import { analyseMSAColumns } from "./utils/msaAnalysis";
+import { useEditStore } from "../editStore";
+import { applyEdits } from "../editUtils";
+import useEditKeyboard from "./hooks/useEditKeyboard";
 
 import { exampleMsa } from "./example_data";
 import MSAToolbar from "./components/MSAToolbar";
@@ -161,7 +165,7 @@ function MSAInput() {
 }
 
 function MSAInner(): JSX.Element {
-  const { msaData } = useMSAStore();
+  const { originalMSA, edits } = useEditStore(useShallow((s) => ({ originalMSA: s.originalMSA, edits: s.edits })));
   const { order } = useSequenceStore();
   const { status: njStatus, progress } = useNJStore();
   const {
@@ -171,13 +175,17 @@ function MSAInner(): JSX.Element {
     setActiveTrack,
   } = useDrawStore();
 
+  useEditKeyboard();
+
+  const editedMSA = useMemo(() => applyEdits(originalMSA, edits), [originalMSA, edits]);
+
   const orderedMsaData = useMemo<MSAData>(() => {
-    if (order.length === 0) return msaData;
-    const byId = new Map(msaData.map((s) => [s.identifier, s]));
+    if (order.length === 0) return editedMSA;
+    const byId = new Map(editedMSA.map((s) => [s.identifier, s]));
     return order
       .map((id) => byId.get(id))
       .filter((s) => s !== undefined) as MSAData;
-  }, [order, msaData]);
+  }, [order, editedMSA]);
 
   const nRows = orderedMsaData.length;
   const nCols = orderedMsaData[0]?.sequence.length ?? 0;
@@ -191,6 +199,16 @@ function MSAInner(): JSX.Element {
     () => (orderedMsaData.length > 0 ? computeColumnStats(orderedMsaData) : []),
     [orderedMsaData],
   );
+
+  function handleTrackClick(e: React.MouseEvent<HTMLCanvasElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const { offsetX, scale } = useDrawStore.getState().drawOptions;
+    const x = e.clientX - rect.left;
+    const col = Math.floor((x - offsetX) / (CELL_SIZE * scale));
+    if (col >= 0 && col < nCols) {
+      useDrawStore.getState().setSelectedColumn(col);
+    }
+  }
 
   usePanZoom({ nRows, nCols });
 
@@ -319,6 +337,7 @@ function MSAInner(): JSX.Element {
                 trackType={activeTrack}
                 columnStats={columnStats}
                 analysis={analysis ?? { parsimonyInformativeSites: [], conservedSites: [], variableSites: [] }}
+                onClick={handleTrackClick}
               />
             </div>
           )}

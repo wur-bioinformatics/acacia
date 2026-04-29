@@ -3,6 +3,8 @@ import type { SeqObject } from "../types";
 import { CELL_SIZE } from "../constants";
 import { useSequenceStore } from "../../sequenceStore";
 import { useDrawStore } from "../stores/drawStore";
+import { useEditStore } from "../../editStore";
+import { resolveDisplayName } from "../../editUtils";
 import { useShallow } from "zustand/react/shallow";
 
 type Props = {
@@ -18,6 +20,8 @@ type DragState = {
   grabOffset: number;   // e.clientY - rowTop at pickup — keeps ghost under cursor
   containerLeft: number;
 };
+
+const DRAG_THRESHOLD = 4; // px — drag only commits after moving this far
 
 function getRowShift(rowIndex: number, dragIndex: number, hoverIndex: number): number {
   if (rowIndex === dragIndex) return 0;
@@ -39,18 +43,25 @@ export default function MSALabels({
   const { setDragState, hoverRow, setHoverRow } = useDrawStore(
     useShallow((s) => ({ setDragState: s.setDragState, hoverRow: s.hoverRow, setHoverRow: s.setHoverRow }))
   );
+  const { edits, addEdit } = useEditStore(
+    useShallow((s) => ({ edits: s.edits, addEdit: s.addEdit }))
+  );
 
   const [dragging, setDragging] = useState<DragState | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const hoverIndexRef = useRef<number | null>(null);
   const ghostRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  // Stable ref to dragging so move handler doesn't go stale
   const draggingRef = useRef<DragState | null>(null);
+  const pendingRef = useRef<{ x: number; y: number; state: DragState } | null>(null);
+
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
 
   const nRows = msaData.length + (showConsensus ? 1 : 0);
 
   function cleanup() {
+    pendingRef.current = null;
     setDragging(null);
     draggingRef.current = null;
     setHoverIndex(null);
@@ -59,6 +70,7 @@ export default function MSALabels({
   }
 
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>, i: number) {
+    if (renamingId !== null) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     const rect = e.currentTarget.getBoundingClientRect();
     const containerRect = containerRef.current!.getBoundingClientRect();
@@ -68,23 +80,32 @@ export default function MSALabels({
       grabOffset: e.clientY - rect.top,
       containerLeft: containerRect.left,
     };
-    setDragging(state);
-    draggingRef.current = state;
-    setHoverIndex(i);
-    hoverIndexRef.current = i;
-    setDragState({ dragIndex: i, hoverIndex: i });
+    // Don't commit to drag yet — wait for DRAG_THRESHOLD movement
+    pendingRef.current = { x: e.clientX, y: e.clientY, state };
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    // Commit pending drag once pointer has moved past the threshold
+    if (pendingRef.current && !draggingRef.current) {
+      const dx = e.clientX - pendingRef.current.x;
+      const dy = e.clientY - pendingRef.current.y;
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+      const { state } = pendingRef.current;
+      draggingRef.current = state;
+      setDragging(state);
+      setHoverIndex(state.index);
+      hoverIndexRef.current = state.index;
+      setDragState({ dragIndex: state.index, hoverIndex: state.index });
+      pendingRef.current = null;
+    }
+
     const drag = draggingRef.current;
     if (!drag) return;
 
-    // Move ghost via direct DOM mutation — no setState, no re-render per frame
     if (ghostRef.current) {
       ghostRef.current.style.top = `${e.clientY - drag.grabOffset}px`;
     }
 
-    // Compute which row the pointer is over
     const containerRect = containerRef.current!.getBoundingClientRect();
     const consensusOffset = showConsensus ? CELL_SIZE : 0;
     const relativeY = e.clientY - containerRect.top - offsetY - consensusOffset;
@@ -99,6 +120,7 @@ export default function MSALabels({
   }
 
   function handlePointerUp() {
+    pendingRef.current = null;
     const drag = draggingRef.current;
     if (!drag) return;
     const to = hoverIndexRef.current;
@@ -106,6 +128,14 @@ export default function MSALabels({
       moveSequence(drag.index, to);
     }
     cleanup();
+  }
+
+  function commitRename(originalId: string) {
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== resolveDisplayName(originalId, edits)) {
+      addEdit({ type: "rename", originalId, newName: trimmed });
+    }
+    setRenamingId(null);
   }
 
   return (
@@ -147,6 +177,10 @@ export default function MSALabels({
             dragging !== null && hoverIndex !== null
               ? getRowShift(i, dragging.index, hoverIndex)
               : 0;
+          const isHovered = hoverRow === i;
+          const isRenaming = renamingId === seq.identifier;
+          const displayName = resolveDisplayName(seq.identifier, edits);
+
           return (
             <div
               key={seq.identifier}
@@ -159,13 +193,12 @@ export default function MSALabels({
                 fontSize: 11,
                 fontFamily: '"Azeret Mono", ui-monospace, monospace',
                 overflow: "hidden",
-                textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
                 paddingRight: 8,
                 textAlign: "right",
-                cursor: dragging ? "grabbing" : "grab",
-                opacity: isDragged ? 0 : (hoverRow === i ? 0.85 : 0.45),
-                background: hoverRow === i ? "rgba(48,92,222,0.15)" : undefined,
+                cursor: dragging ? "grabbing" : (isRenaming ? "text" : "grab"),
+                opacity: isDragged ? 0 : (isHovered ? 0.85 : 0.45),
+                background: isHovered ? "rgba(48,92,222,0.15)" : undefined,
                 transform: `translateY(${shift}px)`,
                 transition: isDragged
                   ? "none"
@@ -173,9 +206,102 @@ export default function MSALabels({
                 userSelect: "none",
                 touchAction: "none",
                 willChange: shift !== 0 ? "transform" : "auto",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                gap: 2,
               }}
             >
-              {seq.identifier}
+              {isHovered && !isRenaming && (
+                <>
+                  <button
+                    title="Rename sequence"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRenamingId(seq.identifier);
+                      setDraft(displayName);
+                    }}
+                    style={{
+                      flexShrink: 0,
+                      lineHeight: 1,
+                      padding: "0 2px",
+                      opacity: 0.5,
+                      cursor: "pointer",
+                      background: "none",
+                      border: "none",
+                      color: "currentColor",
+                    }}
+                    className="hover:opacity-100 transition-opacity"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                  </button>
+                  <button
+                    title="Remove sequence"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addEdit({ type: "remove_row", originalId: seq.identifier });
+                    }}
+                    style={{
+                      flexShrink: 0,
+                      lineHeight: 1,
+                      padding: "0 2px",
+                      fontSize: 13,
+                      opacity: 0.5,
+                      cursor: "pointer",
+                      background: "none",
+                      border: "none",
+                      color: "currentColor",
+                    }}
+                    className="hover:opacity-100 transition-opacity"
+                  >
+                    ×
+                  </button>
+                </>
+              )}
+              {isRenaming ? (
+                <input
+                  autoFocus
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onBlur={() => commitRename(seq.identifier)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitRename(seq.identifier);
+                    if (e.key === "Escape") setRenamingId(null);
+                    e.stopPropagation();
+                  }}
+                  style={{
+                    width: "100%",
+                    fontSize: 11,
+                    fontFamily: '"Azeret Mono", ui-monospace, monospace',
+                    textAlign: "right",
+                    background: "var(--color-base-100)",
+                    border: "1px solid var(--color-base-300)",
+                    borderRadius: 2,
+                    padding: "0 4px",
+                    height: CELL_SIZE - 2,
+                    userSelect: "text",
+                  }}
+                />
+              ) : (
+                <span
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    setRenamingId(seq.identifier);
+                    setDraft(displayName);
+                  }}
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {displayName}
+                </span>
+              )}
             </div>
           );
         })}
@@ -224,7 +350,7 @@ export default function MSALabels({
             zIndex: 100,
           }}
         >
-          {msaData[dragging.index].identifier}
+          {resolveDisplayName(msaData[dragging.index].identifier, edits)}
         </div>
       )}
     </div>

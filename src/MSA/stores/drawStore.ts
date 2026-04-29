@@ -1,21 +1,21 @@
 import { create } from "zustand";
-import type { DrawOptions, ScrollMode, SequenceType, TrackType } from "../types";
+import type { DrawOptions, SequenceType, TrackType } from "../types";
 
 type DrawState = {
   drawOptions: DrawOptions;
   sequenceTypeOverride: SequenceType | null;
   dragState: { dragIndex: number; hoverIndex: number } | null;
-  scrollMode: ScrollMode;
   hoverRow: number | null;
   activeTrack: TrackType | null;
+  selectedColumn: number | null;
   setDrawOptions: (
     opts: Partial<DrawOptions> | ((prev: DrawOptions) => Partial<DrawOptions>)
   ) => void;
   setSequenceTypeOverride: (type: SequenceType | null) => void;
   setDragState: (state: { dragIndex: number; hoverIndex: number } | null) => void;
-  setScrollMode: (mode: ScrollMode) => void;
   setHoverRow: (row: number | null) => void;
   setActiveTrack: (track: TrackType | null) => void;
+  setSelectedColumn: (col: number | null) => void;
 };
 
 export const useDrawStore = create<DrawState>((set) => ({
@@ -36,9 +36,9 @@ export const useDrawStore = create<DrawState>((set) => ({
   },
   sequenceTypeOverride: null,
   dragState: null,
-  scrollMode: "zoom",
   hoverRow: null,
   activeTrack: null,
+  selectedColumn: null,
   setDrawOptions: (options) =>
     set((state) => ({
       drawOptions:
@@ -48,7 +48,7 @@ export const useDrawStore = create<DrawState>((set) => ({
     })),
   setSequenceTypeOverride: (sequenceTypeOverride) => set({ sequenceTypeOverride }),
   setDragState: (dragState) => set({ dragState }),
-  setScrollMode: (scrollMode) => set({ scrollMode }),
   setHoverRow: (hoverRow) => set({ hoverRow }),
   setActiveTrack: (activeTrack) => set({ activeTrack }),
+  setSelectedColumn: (selectedColumn) => set({ selectedColumn }),
 }));

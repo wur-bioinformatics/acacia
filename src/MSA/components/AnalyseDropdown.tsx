@@ -9,6 +9,8 @@ import { useNJStore } from "../../NJ/njStore";
 import { useNJWorker } from "../../NJ";
 import { useViewStore } from "../../viewStore";
 import type { SequenceType } from "../types";
+import { useEditStore } from "../../editStore";
+import { applyEdits } from "../../editUtils";
 
 type SubstitutionModelOption = {
   value: string;
@@ -53,8 +55,10 @@ export default function AnalyseDropdown({ id }: { id: string }): JSX.Element {
   function handleRunNJ() {
     setRunning();
     document.getElementById(id)?.hidePopover();
+    const { originalMSA, edits } = useEditStore.getState();
+    const effectiveMSA = originalMSA.length > 0 ? applyEdits(originalMSA, edits) : msaData;
     const njConfig: NJConfig = {
-      msa: msaData,
+      msa: effectiveMSA,
       n_bootstrap_samples: nBootstrapSamples,
       substitution_model: substitutionModel,
       alphabet: null,

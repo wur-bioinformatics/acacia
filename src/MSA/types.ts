@@ -1,5 +1,4 @@
 export type SequenceType = "DNA" | "Protein";
-export type ScrollMode = "zoom" | "pan";
 export type TrackType = "conservation" | "logo";
 
 export const COLORSTYLES = [

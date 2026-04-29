@@ -1,6 +1,7 @@
 import type { JSX } from "react";
 import type { LayoutMode } from "../types";
 import { useTreeStore } from "../treeStore";
+import UndoRedoButtons from "../../UndoRedoButtons";
 
 const layoutOptions: { value: LayoutMode; label: string }[] = [
   { value: "rectangular", label: "Rectangular" },
@@ -23,25 +24,29 @@ export default function TreeToolbar(): JSX.Element {
 
   return (
     <>
-      <ul className="menu menu-sm menu-horizontal bg-base-200 rounded-box z-20">
-        <li>
-          <button
-            popoverTarget="tree-view-menu"
-            style={{ anchorName: "--tree-view-menu" }}
-          >
-            View
-          </button>
-        </li>
-        <li>
-          <button
-            onClick={resetRoot}
-            disabled={isAtOriginalRoot}
-            className="disabled:opacity-40"
-          >
-            Reset root
-          </button>
-        </li>
-      </ul>
+      <div className="flex items-center gap-2 bg-base-200 rounded-box z-20 px-1">
+        <ul className="menu menu-sm menu-horizontal">
+          <li>
+            <button
+              popoverTarget="tree-view-menu"
+              style={{ anchorName: "--tree-view-menu" }}
+            >
+              View
+            </button>
+          </li>
+          <li>
+            <button
+              onClick={resetRoot}
+              disabled={isAtOriginalRoot}
+              className="disabled:opacity-40"
+            >
+              Reset root
+            </button>
+          </li>
+        </ul>
+
+        <UndoRedoButtons />
+      </div>
 
       <ul
         id="tree-view-menu"

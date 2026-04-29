@@ -52,15 +52,12 @@ export default function usePanZoom({
   const {
     drawOptions: { scale, cellSize },
     setDrawOptions,
-    scrollMode,
   } = useDrawStore();
   const { mainOverlayCanvas: canvas } = useCanvasContext();
   const isDragging = useRef(false);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
   const pinchStartDist = useRef(0);
   const pinchStartScale = useRef(scale);
-  const scrollModeRef = useRef(scrollMode);
-  scrollModeRef.current = scrollMode;
 
   const clampScale = useCallback(
     (newScale: number): number => {
@@ -138,7 +135,7 @@ export default function usePanZoom({
       e.preventDefault();
       if (!canvas) return;
 
-      if (scrollModeRef.current === "pan") {
+      if (!e.ctrlKey && !e.metaKey) {
         panBy(-e.deltaX, -e.deltaY);
         return;
       }
@@ -240,7 +237,7 @@ export default function usePanZoom({
       canvas.removeEventListener("touchmove", onTouchMove);
       canvas.removeEventListener("touchend", onTouchEnd);
     };
-  }, [canvas, scale, setDrawOptions, panBy, clampScale, clampPan]);
+  }, [canvas, scale, setDrawOptions, panBy, clampScale, clampPan]); // scrollMode intentionally removed — zoom uses Ctrl/Cmd+scroll now
 
   // Set initial cursor
   useEffect(() => {

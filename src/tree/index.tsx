@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JSX } from "react";
 import { useContainerWidth } from "../hooks/useContainerWidth";
 import { useNJStore } from "../NJ/njStore";
+import { useEditStore } from "../editStore";
 import { buildLayout, flattenTree, parseNewick } from "./layout";
 import type { LayoutNode } from "./types";
 import { useTreeStore } from "./treeStore";
@@ -40,6 +41,17 @@ export default function Tree(): JSX.Element {
   useEffect(() => {
     if (!selectedNodeId) setPanel(null);
   }, [selectedNodeId]);
+
+  useEffect(() => {
+    function handler(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.shiftKey && e.key === "z") { e.preventDefault(); useEditStore.getState().redo(); return; }
+      if (mod && e.key === "z") { e.preventDefault(); useEditStore.getState().undo(); }
+    }
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   useEffect(() => {
     if (!newick) return;
@@ -100,6 +112,8 @@ export default function Tree(): JSX.Element {
     setBranchPanel(null);
   }, []);
 
+  const isStale = useNJStore((s) => s.isStale);
+
   if (status === "running") {
     return (
       <div ref={containerRef} className="p-4">
@@ -142,6 +156,11 @@ export default function Tree(): JSX.Element {
 
   return (
     <div ref={containerRef} className="flex flex-col gap-0 h-full">
+      {isStale && (
+        <div className="alert alert-warning py-1 px-3 text-xs rounded-none flex-shrink-0">
+          Alignment has been edited — re-run analysis to update the tree.
+        </div>
+      )}
       <TreeToolbar />
       <div style={{ overflowY: "auto", overflowX: "hidden", flex: 1 }}>
         <div className="flex">

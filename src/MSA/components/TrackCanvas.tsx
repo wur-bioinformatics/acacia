@@ -1,5 +1,6 @@
 import { useEffect, useRef, type JSX } from "react";
 import { useDrawStore } from "../stores/drawStore";
+import { useMSAStore } from "../stores/msaStore";
 import { computeConservationScores } from "../utils/msaAnalysis";
 import { CELL_SIZE, CELL_FILL_RATIO } from "../constants";
 import type { TrackType, MSAColumnStat, MSAColumnAnalysis } from "../types";
@@ -11,18 +12,24 @@ export default function TrackCanvas({
   trackType,
   columnStats,
   analysis,
+  onClick,
 }: {
   width: number;
   height: number;
   trackType: TrackType;
   columnStats: MSAColumnStat[];
   analysis: MSAColumnAnalysis;
+  onClick?: (e: React.MouseEvent<HTMLCanvasElement>) => void;
 }): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const offsetX = useDrawStore((s) => s.drawOptions.offsetX);
   const scale = useDrawStore((s) => s.drawOptions.scale);
   const colorStyle = useDrawStore((s) => s.drawOptions.colorStyle);
   const darkMode = useDrawStore((s) => s.drawOptions.darkMode);
+  const sequenceTypeOverride = useDrawStore((s) => s.sequenceTypeOverride);
+  const detectedSequenceType = useMSAStore((s) => s.detectedSequenceType);
+  const sequenceType = sequenceTypeOverride ?? detectedSequenceType;
+  const alphabetSize = sequenceType === "Protein" ? 20 : 4;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -35,7 +42,10 @@ export default function TrackCanvas({
     const nCols = columnStats.length;
     const invScale = 1 / scale;
     const startCol = Math.max(0, Math.floor((-offsetX * invScale) / CELL_SIZE));
-    const endCol = Math.min(nCols, Math.ceil(((width - offsetX) * invScale) / CELL_SIZE));
+    const endCol = Math.min(
+      nCols,
+      Math.ceil(((width - offsetX) * invScale) / CELL_SIZE),
+    );
 
     ctx.save();
     ctx.translate(offsetX, 0);
@@ -47,24 +57,41 @@ export default function TrackCanvas({
         const score = scores[col] ?? 0;
         const barH = score * height;
         ctx.fillStyle = `hsl(${220 - score * 180}, 70%, 50%)`;
-        ctx.fillRect(col * CELL_SIZE, height - barH, CELL_SIZE * CELL_FILL_RATIO, barH);
+        ctx.fillRect(
+          col * CELL_SIZE,
+          height - barH,
+          CELL_SIZE * CELL_FILL_RATIO,
+          barH,
+        );
       }
     } else if (trackType === "logo") {
       const cellW = CELL_SIZE * CELL_FILL_RATIO;
       const REF = 200;
       ctx.font = `${REF}px "Azeret Mono", ui-monospace, monospace`;
       ctx.textBaseline = "alphabetic";
-      const refMetrics = ctx.measureText("M");
-      const capH = refMetrics.actualBoundingBoxAscent + refMetrics.actualBoundingBoxDescent;
+      const refMetrics = ctx.measureText("G");
+      const capH =
+        refMetrics.actualBoundingBoxAscent +
+        refMetrics.actualBoundingBoxDescent;
+
+      const maxIC = Math.log2(alphabetSize);
 
       for (let col = startCol; col < endCol; col++) {
         const stat = columnStats[col];
         const total = Object.values(stat.counts).reduce((s, n) => s + n, 0);
         if (total === 0) continue;
 
+        // Shannon entropy over non-gap characters
+        const entropy = Object.values(stat.counts).reduce((h, n) => {
+          const p = n / total;
+          return h - p * Math.log2(p);
+        }, 0);
+        // Information content, normalized to [0, 1]
+        const ic = Math.max(0, maxIC - entropy) / maxIC;
+
         // Sort ascending so most-frequent char ends up at the bottom
         const entries = Object.entries(stat.counts).sort((a, b) => a[1] - b[1]);
-        const colH = stat.score * height;
+        const colH = ic * height;
         let y = height - colH;
 
         for (const [char, count] of entries) {
@@ -72,7 +99,13 @@ export default function TrackCanvas({
 
           if (charH < 3) {
             // Too small for a legible letter — draw a thin bar
-            ctx.fillStyle = charToColor(char, col, colorStyle, analysis, darkMode);
+            ctx.fillStyle = charToColor(
+              char,
+              col,
+              colorStyle,
+              analysis,
+              darkMode,
+            );
             ctx.fillRect(col * CELL_SIZE, y, cellW, charH);
           } else {
             ctx.save();
@@ -83,7 +116,13 @@ export default function TrackCanvas({
             const sy = charH / capH;
             ctx.translate(col * CELL_SIZE, y);
             ctx.scale(sx, sy);
-            ctx.fillStyle = charToColor(char, col, colorStyle, analysis, darkMode);
+            ctx.fillStyle = charToColor(
+              char,
+              col,
+              colorStyle,
+              analysis,
+              darkMode,
+            );
             // Drawing at actualBoundingBoxAscent places the glyph top exactly at the
             // translated origin (y), so the glyph fills [y, y+charH] precisely.
             ctx.fillText(char, 0, refMetrics.actualBoundingBoxAscent);
@@ -96,14 +135,26 @@ export default function TrackCanvas({
     }
 
     ctx.restore();
-  }, [offsetX, scale, width, height, trackType, columnStats, colorStyle, analysis, darkMode]);
+  }, [
+    offsetX,
+    scale,
+    width,
+    height,
+    trackType,
+    columnStats,
+    colorStyle,
+    analysis,
+    darkMode,
+    alphabetSize,
+  ]);
 
   return (
     <canvas
       ref={canvasRef}
       width={width}
       height={height}
-      style={{ display: "block" }}
+      onClick={onClick}
+      style={{ display: "block", cursor: onClick ? "crosshair" : undefined }}
     />
   );
 }

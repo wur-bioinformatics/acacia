@@ -26,12 +26,26 @@ export default function useOverlay({
   const setHoverRowRef = useRef(setHoverRow);
   setHoverRowRef.current = setHoverRow;
 
-  // Main canvas: column/row highlight on mousemove (pointer mode only)
+  // Main canvas: column/row highlight on mousemove + selected column indicator
   useEffect(() => {
     const overlayCanvas = overlayRef.current;
     if (!overlayCanvas || isMinimap) return;
     const ctx = overlayCanvas.getContext("2d");
     if (!ctx) return;
+
+    function drawSelectedColumn() {
+      const { selectedColumn } = useDrawStore.getState();
+      if (selectedColumn === null || !ctx) return;
+      const { offsetX, scale } = drawOptionsRef.current;
+      const x = selectedColumn * CELL_SIZE * scale + offsetX;
+      ctx.save();
+      ctx.strokeStyle = "rgba(220,60,60,0.8)";
+      ctx.fillStyle = "rgba(220,60,60,0.15)";
+      ctx.lineWidth = 2;
+      ctx.fillRect(x, 0, CELL_SIZE * scale, height);
+      ctx.strokeRect(x, 0, CELL_SIZE * scale, height);
+      ctx.restore();
+    }
 
     const handleMouseMove = (e: MouseEvent) => {
       const { offsetX, offsetY, scale, showConsensus } = drawOptionsRef.current;
@@ -52,11 +66,13 @@ export default function useOverlay({
       ctx.fillRect(0, row * CELL_SIZE + offsetY, width, CELL_SIZE);
       ctx.fillRect(col * CELL_SIZE * scale + offsetX, 0, CELL_SIZE * scale, height);
       ctx.strokeRect(col * CELL_SIZE * scale + offsetX, 0, CELL_SIZE * scale, height);
+      drawSelectedColumn();
     };
 
     const handleMouseLeave = () => {
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
       setHoverRowRef.current(null);
+      drawSelectedColumn();
     };
 
     overlayCanvas.addEventListener("mousemove", handleMouseMove);
