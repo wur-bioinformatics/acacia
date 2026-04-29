@@ -135,11 +135,6 @@ export default function usePanZoom({
       e.preventDefault();
       if (!canvas) return;
 
-      if (!e.ctrlKey && !e.metaKey) {
-        panBy(-e.deltaX, -e.deltaY);
-        return;
-      }
-
       const rect = canvas.getBoundingClientRect();
       const focalX = e.clientX - rect.left;
 

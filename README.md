@@ -29,4 +29,4 @@ npm run dev
 - React + TypeScript (Vite)
 - Zustand for state management
 - Tailwind + DaisyUI
-- [`nj.rs`](https://github.com/holmrenser/nj) (Rust/WASM) for Neighbor-Joining in the browser
+- [`nj.rs`](https://github.com/holmrenser/nj.rs) (Rust/WASM) for Neighbor-Joining in the browser

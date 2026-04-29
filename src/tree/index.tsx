@@ -24,6 +24,7 @@ export default function Tree(): JSX.Element {
     layoutMode,
     yStep,
     flatTree,
+    previewFlatTree,
     collapsedNodes,
     selectedNodeId,
     setSelectedNodeId,
@@ -72,10 +73,18 @@ export default function Tree(): JSX.Element {
 
   const maxRadius = Math.min(treeWidth, 300) / 2;
 
+  // Stable layout from committed flatTree — used for TreeLabels, panels, and dimensions.
   const layoutResult = useMemo(() => {
     if (!flatTree) return null;
     return buildLayout(flatTree, layoutMode, yStep, maxRadius, collapsedNodes);
   }, [flatTree, layoutMode, yStep, collapsedNodes, maxRadius]);
+
+  // Preview layout from the transient drag preview tree — only for Branches rendering.
+  // null when not dragging; falls back to layoutResult.
+  const previewLayoutResult = useMemo(() => {
+    if (!previewFlatTree) return null;
+    return buildLayout(previewFlatTree, layoutMode, yStep, maxRadius, collapsedNodes);
+  }, [previewFlatTree, layoutMode, yStep, maxRadius, collapsedNodes]);
 
   const handleNodeClick = useCallback(
     (node: LayoutNode, e: React.MouseEvent) => {
@@ -137,6 +146,8 @@ export default function Tree(): JSX.Element {
   }
 
   const { root: layoutRoot, nLeaves, maxDepth } = layoutResult;
+  // During drag, show the preview topology in the SVG; labels and panels stay on stable layout.
+  const displayRoot = previewLayoutResult?.root ?? layoutRoot;
   const isRadial = layoutMode === "radial";
 
   const svgWidth = MARGIN.left + treeWidth + MARGIN.right;
@@ -179,7 +190,7 @@ export default function Tree(): JSX.Element {
               {isRadial ? (
                 <Branches
                   mode="radial"
-                  node={layoutRoot}
+                  node={displayRoot}
                   isRoot
                   parentR={0}
                   cx={radCx}
@@ -192,9 +203,9 @@ export default function Tree(): JSX.Element {
                 <>
                   <Branches
                     mode="rect"
-                    node={layoutRoot}
+                    node={displayRoot}
                     isRoot
-                    parentX={layoutRoot.x}
+                    parentX={displayRoot.x}
                     xScale={xScale}
                     treeWidth={treeWidth}
                     onNodeClick={handleNodeClick}

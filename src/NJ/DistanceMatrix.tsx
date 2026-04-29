@@ -1,10 +1,12 @@
 import type { JSX } from "react";
 import { useRef, useState } from "react";
 import { useNJStore } from "./njStore";
+import { useSequenceStore } from "../sequenceStore";
 import { useEditStore } from "../editStore";
 import { resolveDisplayName } from "../editUtils";
 import { useShallow } from "zustand/react/shallow";
 import UndoRedoButtons from "../UndoRedoButtons";
+import SequenceLabels from "../SequenceLabels";
 
 const CELL_WIDTH = 44;
 const CELL_HEIGHT = 22;
@@ -86,32 +88,32 @@ function useLabelDividerResize() {
 
 export default function DistanceMatrix(): JSX.Element {
   const { distanceMatrix, avgDistance, isStale } = useNJStore();
+  const allOrder = useSequenceStore((s) => s.order);
+  const moveSequence = useSequenceStore((s) => s.moveSequence);
+  const { edits } = useEditStore(useShallow((s) => ({ edits: s.edits })));
   const [showNumbers, setShowNumbers] = useState(true);
   const [colorScheme, setColorScheme] = useState<ColorScheme>("warm");
   const { labelWidth, onMouseDown: onDividerMouseDown, onTouchStart: onDividerTouchStart } =
     useLabelDividerResize();
   const labelsRef = useRef<HTMLDivElement>(null);
   const matrixRef = useRef<HTMLDivElement>(null);
-  const { edits, addEdit } = useEditStore(
-    useShallow((s) => ({ edits: s.edits, addEdit: s.addEdit }))
-  );
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
 
   if (!distanceMatrix) return <div />;
 
-  function commitRename(originalId: string) {
-    const trimmed = draft.trim();
-    if (trimmed && trimmed !== resolveDisplayName(originalId, edits)) {
-      addEdit({ type: "rename", originalId, newName: trimmed });
-    }
-    setRenamingId(null);
-  }
-
   const { names, matrix } = distanceMatrix;
+
+  // Render in sequenceStore.order, filtered to names present in this distance matrix
+  const nameSet = new Set(names);
+  const orderedNames = allOrder.filter((n) => nameSet.has(n));
+
+  // Lookup from name to original matrix index (for cell value retrieval)
+  const nameToIndex = new Map(names.map((n, i) => [n, i]));
+
   const maxValue = Math.max(...matrix.flatMap((row) => row));
 
-  function cellStyle(i: number, j: number): React.CSSProperties {
+  function cellStyle(rowName: string, colName: string): React.CSSProperties {
+    const i = nameToIndex.get(rowName)!;
+    const j = nameToIndex.get(colName)!;
     if (i === j) return {};
     const intensity = maxValue > 0 ? matrix[i][j] / maxValue : 0;
     const { r, g, b } = cellBg(intensity, colorScheme);
@@ -192,57 +194,23 @@ export default function DistanceMatrix(): JSX.Element {
       {/* Main area */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* Left labels panel — overflow: hidden, scrollTop synced by JS */}
+        {/* Left labels panel — overflow:hidden, scrollTop synced by JS with the matrix */}
         <div
           ref={labelsRef}
           className="flex-shrink-0 bg-base-100"
           style={{ width: labelWidth, overflow: "hidden" }}
         >
-          {/* Spacer aligning with the column header row */}
+          {/* Spacer matching the sticky column header height */}
           <div style={{ height: HEADER_HEIGHT, flexShrink: 0 }} />
-          {names.map((name) => {
-            const displayName = resolveDisplayName(name, edits);
-            const isRenaming = renamingId === name;
-            return (
-              <div
-                key={name}
-                className="font-mono text-xs whitespace-nowrap overflow-hidden text-ellipsis"
-                style={{ height: CELL_HEIGHT, lineHeight: `${CELL_HEIGHT}px`, padding: "0 6px" }}
-                title={displayName}
-              >
-                {isRenaming ? (
-                  <input
-                    autoFocus
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onBlur={() => commitRename(name)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") commitRename(name);
-                      if (e.key === "Escape") setRenamingId(null);
-                      e.stopPropagation();
-                    }}
-                    style={{
-                      fontSize: 12,
-                      fontFamily: '"Azeret Mono", ui-monospace, monospace',
-                      width: "100%",
-                      background: "var(--color-base-100)",
-                      border: "1px solid var(--color-base-300)",
-                      borderRadius: 2,
-                      padding: "0 4px",
-                      height: CELL_HEIGHT - 2,
-                    }}
-                  />
-                ) : (
-                  <span
-                    onDoubleClick={() => { setRenamingId(name); setDraft(displayName); }}
-                    style={{ cursor: "text" }}
-                  >
-                    {displayName}
-                  </span>
-                )}
-              </div>
-            );
-          })}
+          <SequenceLabels
+            entries={orderedNames.map((name) => ({ id: name }))}
+            rowHeight={CELL_HEIGHT}
+            width={labelWidth}
+            containerHeight={orderedNames.length * CELL_HEIGHT}
+            textAlign="left"
+            fontSize={12}
+            onReorder={moveSequence}
+          />
         </div>
 
         {/* Draggable divider */}
@@ -266,7 +234,7 @@ export default function DistanceMatrix(): JSX.Element {
             className="sticky top-0 bg-base-100 z-10 flex"
             style={{ height: HEADER_HEIGHT }}
           >
-            {names.map((name) => {
+            {orderedNames.map((name) => {
               const displayName = resolveDisplayName(name, edits);
               return (
                 <div
@@ -293,15 +261,15 @@ export default function DistanceMatrix(): JSX.Element {
           </div>
 
           {/* Matrix rows */}
-          {names.map((_, i) => (
-            <div key={i} className="flex">
-              {names.map((_col, j) => (
+          {orderedNames.map((rowName) => (
+            <div key={rowName} className="flex">
+              {orderedNames.map((colName) => (
                 <div
-                  key={j}
+                  key={colName}
                   className="flex-shrink-0 flex items-center justify-center font-mono tabular-nums text-xs border border-base-200"
-                  style={{ width: CELL_WIDTH, height: CELL_HEIGHT, ...cellStyle(i, j) }}
+                  style={{ width: CELL_WIDTH, height: CELL_HEIGHT, ...cellStyle(rowName, colName) }}
                 >
-                  {i === j ? "—" : showNumbers ? matrix[i][j].toFixed(3) : ""}
+                  {rowName === colName ? "—" : showNumbers ? matrix[nameToIndex.get(rowName)!][nameToIndex.get(colName)!].toFixed(3) : ""}
                 </div>
               ))}
             </div>

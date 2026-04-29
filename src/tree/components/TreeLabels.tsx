@@ -1,11 +1,10 @@
-import { useState, type JSX } from "react";
+import { type JSX } from "react";
 import { useTreeStore } from "../treeStore";
-import type { LayoutNode, NodeId } from "../types";
+import type { FlatNode, LayoutNode, NodeId } from "../types";
 import { MARGIN } from "../constants";
-import { truncate } from "../layout";
-import { useEditStore } from "../../editStore";
-import { resolveDisplayName } from "../../editUtils";
-import { useShallow } from "zustand/react/shallow";
+import { useSequenceStore } from "../../sequenceStore";
+import { rotateFlatToOrder } from "../layout";
+import SequenceLabels, { type LabelEntry } from "../../SequenceLabels";
 
 type Props = {
   layoutRoot: LayoutNode;
@@ -20,125 +19,121 @@ function collectVisible(node: LayoutNode, collapsed: ReadonlySet<NodeId>): Layou
   return node.children.flatMap((c) => collectVisible(c, collapsed));
 }
 
+function firstLeafName(id: NodeId, nodes: Map<NodeId, FlatNode>): string {
+  const node = nodes.get(id)!;
+  if (node.childIds.length === 0) return node.name;
+  return firstLeafName(node.childIds[0], nodes);
+}
+
+function lastLeafName(id: NodeId, nodes: Map<NodeId, FlatNode>): string {
+  const node = nodes.get(id)!;
+  if (node.childIds.length === 0) return node.name;
+  return lastLeafName(node.childIds[node.childIds.length - 1], nodes);
+}
+
 export default function TreeLabels({ layoutRoot, yStep, labelWidth, svgHeight }: Props): JSX.Element {
   const collapsedNodes = useTreeStore((s) => s.collapsedNodes);
   const nodeStyles = useTreeStore((s) => s.nodeStyles);
   const selectedNodeId = useTreeStore((s) => s.selectedNodeId);
-  const { edits, addEdit } = useEditStore(
-    useShallow((s) => ({ edits: s.edits, addEdit: s.addEdit }))
-  );
+  const flatTree = useTreeStore((s) => s.flatTree);
+  const rotateLeavesToOrder = useTreeStore((s) => s.rotateLeavesToOrder);
+  const setPreviewFlatTree = useTreeStore((s) => s.setPreviewFlatTree);
 
-  const [renamingId, setRenamingId] = useState<string | null>(null); // original leaf name
-  const [draft, setDraft] = useState("");
-
+  // rows and entries are derived from the stable layoutRoot (committed flatTree),
+  // not from the preview — this keeps drag interaction indices stable during preview.
   const rows = collectVisible(layoutRoot, collapsedNodes);
-  const maxChars = Math.max(6, Math.floor((labelWidth - 16) / 7));
 
-  function commitRename(originalId: string) {
-    const trimmed = draft.trim();
-    if (trimmed && trimmed !== resolveDisplayName(originalId, edits)) {
-      addEdit({ type: "rename", originalId, newName: trimmed });
+  const entries: LabelEntry[] = rows.map((entry) => {
+    const isCollapsed = collapsedNodes.has(entry.id);
+    const isLeaf = entry.children.length === 0;
+    const styleKey = isLeaf ? `leaf:${entry.node.name}` : entry.id;
+    const style = nodeStyles.get(styleKey);
+    const isSelected = selectedNodeId === entry.id;
+
+    const color = isSelected
+      ? "oklch(var(--p))"
+      : (style?.color ?? (isLeaf ? undefined : "#555"));
+    const fontWeight = style?.labelBold ? "bold" : undefined;
+    const fontStyle = isCollapsed ? "italic" : undefined;
+
+    return {
+      id: entry.node.name,
+      label: isCollapsed ? `${entry.leafCount} sequences` : undefined,
+      draggable: isLeaf && !isCollapsed,
+      entryStyle: { color, fontWeight, fontStyle },
+    };
+  });
+
+  // Map a row index → a leaf name in fullLeafNames order.
+  // useLastLeaf: for collapsed nodes, use the last leaf (when dragging down) so the
+  // dragged item lands after the collapsed group, not inside it.
+  function rowToLeafName(rowIdx: number, nodes: Map<NodeId, FlatNode>, useLastLeaf: boolean): string {
+    const row = rows[rowIdx];
+    // Use flatTree childIds to distinguish true leaves from collapsed internal nodes.
+    // Collapsed nodes have row.children === [] in the layout (treated as leaves for rendering),
+    // but their flatTree childIds are non-empty. Using row.children.length would return the
+    // internal node's name (not a leaf name), causing indexOf to return -1 and aborting the drag.
+    const flatNode = nodes.get(row.id)!;
+    if (flatNode.childIds.length === 0) return row.node.name;
+    return useLastLeaf ? lastLeafName(row.id, nodes) : firstLeafName(row.id, nodes);
+  }
+
+  // Compute the desired leaf name array for a given (from, to) row move.
+  // Uses the stable flatTree so drag indices stay valid across preview updates.
+  function computeNewOrder(from: number, to: number): string[] | null {
+    if (!flatTree || from === to) return null;
+    const { nodes, leafOrder } = flatTree;
+    const fullLeafNames = leafOrder.map((id) => nodes.get(id)!.name);
+
+    const fromLeafName = rowToLeafName(from, nodes, false);
+    // When dragging down (from < to), use the last leaf of collapsed groups so the
+    // dragged item is inserted after the group, not at its start.
+    const toLeafName = rowToLeafName(to, nodes, from < to);
+
+    const fromIdx = fullLeafNames.indexOf(fromLeafName);
+    const toIdx = fullLeafNames.indexOf(toLeafName);
+    if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return null;
+
+    // Mirror moveSequence: remove from fromIdx, insert at toIdx in the shortened array.
+    // Using the original toIdx (not re-found after splice) matches the MSA direction behaviour.
+    const newOrder = [...fullLeafNames];
+    const [item] = newOrder.splice(fromIdx, 1);
+    newOrder.splice(toIdx, 0, item);
+    return newOrder;
+  }
+
+  function handleReorder(from: number, to: number) {
+    const newOrder = computeNewOrder(from, to);
+    if (!newOrder) return;
+    rotateLeavesToOrder(newOrder);  // commits + clears previewFlatTree
+    useSequenceStore.getState().syncFromTreeLeafOrder(newOrder);
+  }
+
+  function handleDragChange(state: { dragIndex: number; hoverIndex: number } | null) {
+    if (!flatTree || state === null) {
+      setPreviewFlatTree(null);
+      return;
     }
-    setRenamingId(null);
+    const newOrder = computeNewOrder(state.dragIndex, state.hoverIndex);
+    if (!newOrder) {
+      setPreviewFlatTree(null);
+      return;
+    }
+    setPreviewFlatTree(rotateFlatToOrder(flatTree, newOrder));
   }
 
   return (
-    <div
-      style={{
-        position: "relative",
-        width: labelWidth,
-        height: svgHeight,
-        flexShrink: 0,
-        overflow: "hidden",
-        fontFamily: '"Azeret Mono", ui-monospace, monospace',
-        fontSize: 12,
-      }}
-    >
-      {rows.map((entry) => {
-        const isCollapsed = collapsedNodes.has(entry.id);
-        const isLeaf = entry.children.length === 0;
-        const styleKey = isLeaf ? `leaf:${entry.node.name}` : entry.id;
-        const style = nodeStyles.get(styleKey);
-        const isSelected = selectedNodeId === entry.id;
-        const isRenaming = isLeaf && !isCollapsed && renamingId === entry.node.name;
-
-        const color = isSelected
-          ? "oklch(var(--p))"
-          : (style?.color ?? (isLeaf ? "#111" : "#555"));
-        const fontWeight = style?.labelBold ? "bold" : "normal";
-
-        const displayName = isLeaf
-          ? resolveDisplayName(entry.node.name, edits)
-          : entry.node.name;
-        const label = isCollapsed
-          ? `${entry.leafCount} sequences`
-          : truncate(displayName, maxChars);
-
-        return (
-          <div
-            key={entry.id}
-            style={{
-              position: "absolute",
-              top: MARGIN.top + entry.y - yStep / 2,
-              height: yStep,
-              width: "100%",
-              display: "flex",
-              alignItems: "center",
-              paddingLeft: 8,
-              boxSizing: "border-box",
-            }}
-          >
-            {isRenaming ? (
-              <input
-                autoFocus
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onBlur={() => commitRename(entry.node.name)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") commitRename(entry.node.name);
-                  if (e.key === "Escape") setRenamingId(null);
-                  e.stopPropagation();
-                }}
-                style={{
-                  fontSize: 12,
-                  fontFamily: '"Azeret Mono", ui-monospace, monospace',
-                  width: "calc(100% - 8px)",
-                  background: "var(--color-base-100)",
-                  border: "1px solid var(--color-base-300)",
-                  borderRadius: 2,
-                  padding: "0 4px",
-                  height: Math.min(yStep - 2, 18),
-                  color,
-                  fontWeight,
-                }}
-              />
-            ) : (
-              <span
-                onDoubleClick={
-                  isLeaf && !isCollapsed
-                    ? (e) => {
-                        e.stopPropagation();
-                        setRenamingId(entry.node.name);
-                        setDraft(displayName);
-                      }
-                    : undefined
-                }
-                style={{
-                  color,
-                  fontWeight,
-                  fontStyle: isCollapsed ? "italic" : "normal",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  cursor: isLeaf && !isCollapsed ? "text" : "default",
-                }}
-              >
-                {label}
-              </span>
-            )}
-          </div>
-        );
-      })}
-    </div>
+    <SequenceLabels
+      entries={entries}
+      rowHeight={yStep}
+      width={labelWidth}
+      containerHeight={svgHeight}
+      paddingTop={MARGIN.top - yStep / 2}
+      textAlign="left"
+      fontSize={12}
+      animateShifts={false}
+      onReorder={handleReorder}
+      onDragChange={handleDragChange}
+    />
   );
 }

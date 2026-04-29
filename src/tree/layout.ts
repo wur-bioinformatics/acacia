@@ -184,7 +184,22 @@ export function rerootFlat(tree: FlatTree, targetId: NodeId): FlatTree {
   // Recompute leafCount bottom-up (unavoidable after reroot).
   computeFlatLeafCounts(newNodes, rootId);
 
-  return { nodes: newNodes, rootId, originalRootId: tree.originalRootId, isRerooted: true, leafOrder: tree.leafOrder };
+  return { nodes: newNodes, rootId, originalRootId: tree.originalRootId, isRerooted: true, leafOrder: buildLeafOrder(newNodes, rootId) };
+}
+
+// ---------------------------------------------------------------------------
+// Leaf order helpers
+// ---------------------------------------------------------------------------
+
+function buildLeafOrder(nodes: Map<NodeId, FlatNode>, rootId: NodeId): NodeId[] {
+  const order: NodeId[] = [];
+  function walk(id: NodeId) {
+    const node = nodes.get(id)!;
+    if (node.childIds.length === 0) { order.push(id); return; }
+    node.childIds.forEach(walk);
+  }
+  walk(rootId);
+  return order;
 }
 
 // ---------------------------------------------------------------------------
@@ -198,7 +213,46 @@ export function rotateFlat(tree: FlatTree, targetId: NodeId): FlatTree {
   if (!target) return tree;
   const newNodes = new Map(tree.nodes);
   newNodes.set(targetId, { ...target, childIds: [...target.childIds].reverse() });
-  return { ...tree, nodes: newNodes };
+  return { ...tree, nodes: newNodes, leafOrder: buildLeafOrder(newNodes, tree.rootId) };
+}
+
+// ---------------------------------------------------------------------------
+// Rotate all internal nodes to match a desired leaf order
+// ---------------------------------------------------------------------------
+
+// Pure function: sorts every internal node's children so that the subtree with
+// the minimum desired-position leaf comes first. Returns a new FlatTree with
+// updated nodes and leafOrder; all other fields are shared by reference.
+// Used both for committed reorders (via treeStore.rotateLeavesToOrder) and
+// for live drag previews (via treeStore.setPreviewFlatTree).
+export function rotateFlatToOrder(tree: FlatTree, desiredLeafNames: string[]): FlatTree {
+  const { nodes, rootId } = tree;
+  const pos = new Map(desiredLeafNames.map((n, i) => [n, i]));
+
+  function minPos(id: NodeId): number {
+    const node = nodes.get(id)!;
+    if (node.childIds.length === 0) return pos.get(node.name) ?? Infinity;
+    return Math.min(...node.childIds.map(minPos));
+  }
+
+  const newNodes = new Map(nodes);
+  for (const [id, node] of nodes) {
+    if (node.childIds.length > 0) {
+      const sorted = [...node.childIds].sort((a, b) => minPos(a) - minPos(b));
+      if (sorted.some((sid, i) => sid !== node.childIds[i]))
+        newNodes.set(id, { ...node, childIds: sorted });
+    }
+  }
+
+  const newLeafOrder: NodeId[] = [];
+  function collectLeaves(id: NodeId) {
+    const node = newNodes.get(id)!;
+    if (node.childIds.length === 0) { newLeafOrder.push(id); return; }
+    node.childIds.forEach(collectLeaves);
+  }
+  collectLeaves(rootId);
+
+  return { ...tree, nodes: newNodes, leafOrder: newLeafOrder };
 }
 
 // ---------------------------------------------------------------------------

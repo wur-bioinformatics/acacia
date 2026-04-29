@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { BranchStyle, FlatTree, LayoutMode, NodeId, NodeStyle } from "./types";
-import { rerootFlat, rotateFlat } from "./layout";
+import { rerootFlat, rotateFlat, rotateFlatToOrder } from "./layout";
 
 // Node style keys:
 //   - Leaf nodes:     "leaf:<sequenceName>"   (stable across reroots)
@@ -19,6 +19,9 @@ type TreeState = {
   layoutMode: LayoutMode;
   yStep: number;
   flatTree: FlatTree | null;
+  // Ephemeral tree used during label drag — rendered instead of flatTree, never committed.
+  // Set on each hover-index change during drag; cleared on drop or cancel.
+  previewFlatTree: FlatTree | null;
   collapsedNodes: ReadonlySet<NodeId>;
   nodeStyles: ReadonlyMap<string, NodeStyle>;
   // Keys: "branch:leaf:<leafName>" (stable) or "branch:<nodeId>"
@@ -44,12 +47,18 @@ type TreeState = {
   clearBranchStyle: (key: string) => void;
   setSelectedNodeId: (id: NodeId | null) => void;
   setShowBootstrap: (show: boolean) => void;
+  // Rotates all internal nodes so leaves appear in desiredLeafNames order.
+  // Commits to flatTree. Does NOT sync sequenceStore — caller must do that.
+  rotateLeavesToOrder: (desiredLeafNames: string[]) => void;
+  // Set/clear a transient preview tree for live drag animation (never committed to sequenceStore).
+  setPreviewFlatTree: (ft: FlatTree | null) => void;
 };
 
 export const useTreeStore = create<TreeState>((set) => ({
   layoutMode: "rectangular",
   yStep: 22,
   flatTree: null,
+  previewFlatTree: null,
   collapsedNodes: new Set(),
   nodeStyles: new Map(),
   branchStyles: new Map(),
@@ -143,4 +152,12 @@ export const useTreeStore = create<TreeState>((set) => ({
   setSelectedNodeId: (selectedNodeId) => set({ selectedNodeId }),
 
   setShowBootstrap: (showBootstrap) => set({ showBootstrap }),
+
+  rotateLeavesToOrder: (desiredLeafNames) =>
+    set((s) => {
+      if (!s.flatTree) return {};
+      return { flatTree: rotateFlatToOrder(s.flatTree, desiredLeafNames), previewFlatTree: null };
+    }),
+
+  setPreviewFlatTree: (previewFlatTree) => set({ previewFlatTree }),
 }));
