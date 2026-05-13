@@ -20,6 +20,7 @@ export type RectGeomProps = {
   parentX: number;
   xScale: number;
   treeWidth: number;
+  yStep: number;
 };
 
 export type RadialGeomProps = {
@@ -38,8 +39,9 @@ export type BranchesProps = {
 } & (RectGeomProps | RadialGeomProps);
 
 export type LayoutNode = {
-  node: TreeNode;
   id: NodeId; // stable NodeId: "n0", "n5", etc. — survives reroots and rotations
+  name: string; // leaf: sequence identifier; internal: bootstrap value or ""
+  length: number; // branch length to parent (0 for root)
   x: number; // cumulative branch depth (or hop count for cladogram, radius for radial)
   y: number; // leaf index * yStep (not used for radial rendering, but kept for consistency)
   angle?: number; // angle in radians, only populated for radial layout

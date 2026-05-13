@@ -59,7 +59,7 @@ export default function NodePanel({
     const node = findLayoutNode(layoutRoot, panel.id);
     if (!node) return;
     for (const n of getSubtreeNodes(node)) {
-      const key = n.children.length === 0 ? `leaf:${n.node.name}` : n.id;
+      const key = n.children.length === 0 ? `leaf:${n.name}` : n.id;
       setNodeStyle(key, { color });
     }
   };
@@ -68,7 +68,7 @@ export default function NodePanel({
     const node = findLayoutNode(layoutRoot, panel.id);
     if (!node) return;
     for (const n of getSubtreeNodes(node)) {
-      const key = n.children.length === 0 ? `leaf:${n.node.name}` : n.id;
+      const key = n.children.length === 0 ? `leaf:${n.name}` : n.id;
       clearNodeStyle(key);
     }
     ref.current?.hidePopover();

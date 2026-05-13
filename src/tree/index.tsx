@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
 import { useContainerWidth } from "../hooks/useContainerWidth";
 import { useNJStore } from "../NJ/njStore";
@@ -9,6 +9,7 @@ import { useTreeStore } from "./treeStore";
 import { useSequenceStore } from "../sequenceStore";
 import { DIVIDER_WIDTH, MARGIN, RADIAL_LABEL_GAP } from "./constants";
 import { useLabelDividerResize } from "./hooks/useLabelDividerResize";
+import { useTreeNodeDrag } from "./hooks/useTreeNodeDrag";
 import NodePanel from "./components/NodePanel";
 import type { PanelState } from "./types";
 import BranchPanel from "./components/BranchPanel";
@@ -17,22 +18,26 @@ import TreeLabels from "./components/TreeLabels";
 import TreeToolbar from "./components/TreeToolbar";
 import ScaleBar from "./components/ScaleBar";
 import NJStatusBar from "./components/NJStatusBar";
+import { downloadFile, flatTreeToNewick, serializeTreePNG, serializeTreeSVG } from "./utils/export";
 
 export default function Tree(): JSX.Element {
   const { newick, status, error } = useNJStore();
   const {
     layoutMode,
     yStep,
+    xZoom,
+    radialPan,
+    radialZoom,
     flatTree,
     previewFlatTree,
     collapsedNodes,
     selectedNodeId,
     setSelectedNodeId,
     setFlatTree,
+    resetRadialView,
   } = useTreeStore();
 
   const [containerRef, containerWidth] = useContainerWidth();
-  const svgRef = useRef<SVGSVGElement>(null);
   const { labelWidth, onMouseDown: onDividerMouseDown, onTouchStart: onDividerTouchStart } =
     useLabelDividerResize();
 
@@ -79,6 +84,9 @@ export default function Tree(): JSX.Element {
     return buildLayout(flatTree, layoutMode, yStep, maxRadius, collapsedNodes);
   }, [flatTree, layoutMode, yStep, collapsedNodes, maxRadius]);
 
+  const { svgRef, svgElRef, dropRow, svgDragging, wasDraggingRef, onPointerDown: onSvgPointerDown } =
+    useTreeNodeDrag(layoutResult);
+
   // Preview layout from the transient drag preview tree — only for Branches rendering.
   // null when not dragging; falls back to layoutResult.
   const previewLayoutResult = useMemo(() => {
@@ -88,17 +96,18 @@ export default function Tree(): JSX.Element {
 
   const handleNodeClick = useCallback(
     (node: LayoutNode, e: React.MouseEvent) => {
+      if (wasDraggingRef.current) { wasDraggingRef.current = false; return; }
       e.preventDefault();
       setSelectedNodeId(node.id);
       setPanel({
         id: node.id,
         isLeaf: node.children.length === 0,
-        leafName: node.children.length === 0 ? node.node.name : undefined,
+        leafName: node.children.length === 0 ? node.name : undefined,
         x: e.clientX,
         y: e.clientY,
       });
     },
-    [setSelectedNodeId],
+    [setSelectedNodeId, wasDraggingRef],
   );
 
   const handleClosePanel = useCallback(() => {
@@ -111,7 +120,7 @@ export default function Tree(): JSX.Element {
     setBranchPanel({
       id: node.id,
       isLeaf: node.children.length === 0,
-      leafName: node.children.length === 0 ? node.node.name : undefined,
+      leafName: node.children.length === 0 ? node.name : undefined,
       x: e.clientX,
       y: e.clientY,
     });
@@ -122,6 +131,40 @@ export default function Tree(): JSX.Element {
   }, []);
 
   const isStale = useNJStore((s) => s.isStale);
+  const unmatchedLeafNames = useSequenceStore((s) => s.unmatchedLeafNames);
+  const isRadial = layoutMode === "radial";
+
+  const handleExportSVG = useCallback(() => {
+    if (!svgElRef.current || !layoutResult) return;
+    const mode = isRadial ? "radial" : "rect";
+    const { nodeStyles, searchQuery, labelFontSize } = useTreeStore.getState();
+    const svg = serializeTreeSVG(svgElRef.current, layoutResult, yStep, treeWidth, collapsedNodes, mode, {
+      nodeStyles,
+      searchQuery,
+      selectedNodeId,
+      labelFontSize,
+    });
+    downloadFile(svg, "tree.svg", "image/svg+xml");
+  }, [layoutResult, yStep, treeWidth, collapsedNodes, isRadial, selectedNodeId, svgElRef]);
+
+  const handleExportPNG = useCallback(async () => {
+    if (!svgElRef.current || !layoutResult) return;
+    const mode = isRadial ? "radial" : "rect";
+    const { nodeStyles, searchQuery, labelFontSize } = useTreeStore.getState();
+    const svg = serializeTreeSVG(svgElRef.current, layoutResult, yStep, treeWidth, collapsedNodes, mode, {
+      nodeStyles,
+      searchQuery,
+      selectedNodeId,
+      labelFontSize,
+    });
+    const png = await serializeTreePNG(svg);
+    downloadFile(png, "tree.png", "image/png");
+  }, [layoutResult, yStep, treeWidth, collapsedNodes, isRadial, selectedNodeId, svgElRef]);
+
+  const handleExportNewick = useCallback(() => {
+    if (!flatTree) return;
+    downloadFile(flatTreeToNewick(flatTree), "tree.nwk", "text/plain");
+  }, [flatTree]);
 
   if (status === "running") {
     return (
@@ -148,14 +191,16 @@ export default function Tree(): JSX.Element {
   const { root: layoutRoot, nLeaves, maxDepth } = layoutResult;
   // During drag, show the preview topology in the SVG; labels and panels stay on stable layout.
   const displayRoot = previewLayoutResult?.root ?? layoutRoot;
-  const isRadial = layoutMode === "radial";
 
-  const svgWidth = MARGIN.left + treeWidth + MARGIN.right;
+  // For rect/cladogram, the zoomed SVG can exceed the container width.
+  const svgWidth = isRadial
+    ? MARGIN.left + treeWidth + MARGIN.right
+    : MARGIN.left + treeWidth * xZoom + MARGIN.right;
   const svgHeight = isRadial
     ? (maxRadius + RADIAL_LABEL_GAP + 60) * 2 + MARGIN.top + MARGIN.bottom
     : nLeaves * yStep + MARGIN.top + MARGIN.bottom;
 
-  const xScale = maxDepth > 0 ? treeWidth / maxDepth : treeWidth;
+  const xScale = (maxDepth > 0 ? treeWidth / maxDepth : treeWidth) * xZoom;
   const radCx = maxRadius + RADIAL_LABEL_GAP + 40;
   const radCy = maxRadius + RADIAL_LABEL_GAP + 40;
 
@@ -172,8 +217,23 @@ export default function Tree(): JSX.Element {
           Alignment has been edited — re-run analysis to update the tree.
         </div>
       )}
-      <TreeToolbar />
-      <div style={{ overflowY: "auto", overflowX: "hidden", flex: 1 }}>
+      {unmatchedLeafNames.length > 0 && (
+        <div className="alert alert-warning py-1 px-3 text-xs rounded-none flex-shrink-0">
+          {unmatchedLeafNames.length} tree{" "}
+          {unmatchedLeafNames.length === 1 ? "leaf" : "leaves"} not found in
+          alignment:{" "}
+          {unmatchedLeafNames.length <= 3
+            ? unmatchedLeafNames.join(", ")
+            : `${unmatchedLeafNames.slice(0, 3).join(", ")} +${unmatchedLeafNames.length - 3} more`}
+        </div>
+      )}
+      <TreeToolbar
+        onExportSVG={handleExportSVG}
+        onExportPNG={handleExportPNG}
+        onExportNewick={handleExportNewick}
+        onResetView={resetRadialView}
+      />
+      <div style={{ overflowY: "auto", overflowX: isRadial ? "hidden" : "auto", flex: 1 }}>
         <div className="flex">
           <svg
             ref={svgRef}
@@ -184,21 +244,24 @@ export default function Tree(): JSX.Element {
               display: "block",
               flexShrink: 0,
             }}
+            onPointerDown={onSvgPointerDown}
             onClick={clearSelection}
           >
             <g transform={`translate(${MARGIN.left}, ${MARGIN.top})`}>
               {isRadial ? (
-                <Branches
-                  mode="radial"
-                  node={displayRoot}
-                  isRoot
-                  parentR={0}
-                  cx={radCx}
-                  cy={radCy}
-                  maxRadius={maxRadius}
-                  onNodeClick={handleNodeClick}
-                  onBranchClick={handleBranchClick}
-                />
+                <g transform={`translate(${radialPan.x}, ${radialPan.y}) scale(${radialZoom})`}>
+                  <Branches
+                    mode="radial"
+                    node={displayRoot}
+                    isRoot
+                    parentR={0}
+                    cx={radCx}
+                    cy={radCy}
+                    maxRadius={maxRadius}
+                    onNodeClick={handleNodeClick}
+                    onBranchClick={handleBranchClick}
+                  />
+                </g>
               ) : (
                 <>
                   <Branches
@@ -208,6 +271,7 @@ export default function Tree(): JSX.Element {
                     parentX={displayRoot.x}
                     xScale={xScale}
                     treeWidth={treeWidth}
+                    yStep={yStep}
                     onNodeClick={handleNodeClick}
                     onBranchClick={handleBranchClick}
                   />
@@ -216,6 +280,18 @@ export default function Tree(): JSX.Element {
                       scaleVal={Math.max(0, maxDepth * 0.1)}
                       scalePx={Math.max(0, maxDepth * 0.1) * xScale}
                       nLeaves={nLeaves}
+                    />
+                  )}
+                  {dropRow !== null && (
+                    <line
+                      x1={0}
+                      y1={dropRow * yStep}
+                      x2={treeWidth}
+                      y2={dropRow * yStep}
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                      opacity={0.5}
+                      pointerEvents="none"
                     />
                   )}
                 </>
@@ -242,6 +318,7 @@ export default function Tree(): JSX.Element {
               </div>
               <TreeLabels
                 layoutRoot={layoutRoot}
+                previewLayoutRoot={svgDragging ? previewLayoutResult?.root : undefined}
                 yStep={yStep}
                 labelWidth={labelWidth}
                 svgHeight={svgHeight}

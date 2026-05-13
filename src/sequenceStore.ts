@@ -10,10 +10,12 @@ import { create } from "zustand";
 type SequenceOrderState = {
   order: readonly string[]; // sequence identifiers in current display order
   selectedIdentifier: string | null; // shared selection across linked views
+  unmatchedLeafNames: readonly string[]; // tree leaf names with no matching MSA sequence
 
   setOrder: (order: string[]) => void;
   moveSequence: (fromIndex: number, toIndex: number) => void;
   // Reorders to match leafNames, appending any identifiers not present in the tree.
+  // Populates unmatchedLeafNames with tree leaf names that don't exist in the MSA.
   syncFromTreeLeafOrder: (leafNames: string[]) => void;
   setSelectedIdentifier: (id: string | null) => void;
 };
@@ -21,8 +23,9 @@ type SequenceOrderState = {
 export const useSequenceStore = create<SequenceOrderState>((set) => ({
   order: [],
   selectedIdentifier: null,
+  unmatchedLeafNames: [],
 
-  setOrder: (order) => set({ order }),
+  setOrder: (order) => set({ order, unmatchedLeafNames: [] }),
 
   moveSequence: (from, to) =>
     set((s) => {
@@ -34,9 +37,12 @@ export const useSequenceStore = create<SequenceOrderState>((set) => ({
 
   syncFromTreeLeafOrder: (leafNames) =>
     set((s) => {
+      const inMSA = new Set(s.order);
       const inTree = new Set(leafNames);
+      const matched = leafNames.filter((n) => inMSA.has(n));
       const extras = s.order.filter((id) => !inTree.has(id));
-      return { order: [...leafNames, ...extras] };
+      const unmatched = leafNames.filter((n) => !inMSA.has(n));
+      return { order: [...matched, ...extras], unmatchedLeafNames: unmatched };
     }),
 
   setSelectedIdentifier: (selectedIdentifier) => set({ selectedIdentifier }),

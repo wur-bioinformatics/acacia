@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Acacia — Bioinformatics MSA & Phylogenetic Tree Viewer
 
 A React/TypeScript web app for visualizing Multiple Sequence Alignments (MSA) and phylogenetic trees.
@@ -7,7 +11,9 @@ A React/TypeScript web app for visualizing Multiple Sequence Alignments (MSA) an
 - `npm run dev` — start dev server (Vite HMR)
 - `npm run build` — type-check (`tsc -b`) then Vite build
 - `npm run lint` — ESLint
-- `npm run test` — Vitest (jsdom)
+- `npm run test` — Vitest (jsdom), all tests
+- `npx vitest run src/tree/layout.test.ts` — run a single test file
+- `npx vitest run -t "test name pattern"` — run tests matching a name
 
 ## Architecture
 
@@ -16,12 +22,24 @@ A React/TypeScript web app for visualizing Multiple Sequence Alignments (MSA) an
 Zustand stores only — no Context API for state, no Redux.
 
 - `viewStore.ts` — which view is active (MSA / Tree / Combined)
+- `sequenceStore.ts` — **cross-module**: the single source of truth for sequence display order and shared selection. Both the MSA renderer and the tree use this. Tree drag/reorder writes here; MSA reads here.
+- `editStore.ts` — **cross-module**: undo/redo stack for MSA edits (rename, remove row, remove column). Edits are stored as a log against the original `MSAData`; `applyEdits()` in `editUtils.ts` replays them. Cmd+Z / Cmd+Shift+Z is wired in `tree/index.tsx` and `MSA/index.tsx`.
 - `MSA/stores/msaStore.ts` — parsed sequence data
 - `MSA/stores/drawStore.ts` — pan/zoom/color draw options
 - `NJ/njStore.ts` — NJ algorithm computation state
-- `tree/treeStore.ts` — tree display state (layout mode, pan/zoom, reroot, collapse, node styles)
+- `tree/treeStore.ts` — tree display state (layout mode, pan/zoom, reroot, collapse, node styles, drag mode)
 
 Context API is used **only for mutable DOM refs** that need to be shared across sibling hooks (e.g. `CanvasContext` shares canvas element refs). Never for state.
+
+### Tree type pipeline
+
+Three distinct types — never conflate them:
+
+1. **`TreeNode`** (`tree/types.ts`) — raw recursive parse output from `parseNewick()`. Transient; discarded after flattening.
+2. **`FlatTree`** (`tree/types.ts`) — the single source of truth stored in `treeStore`. A `Map<NodeId, FlatNode>` with stable string IDs (`"n0"`, `"n1"`, …) assigned in DFS preorder. All tree operations (reroot, rotate, drag-reorder) operate on `FlatTree`. IDs survive reroots and rotations. `originalRootId` / `isRerooted` support the "Reset root" feature.
+3. **`LayoutNode`** (`tree/types.ts`) — computed by `buildLayout()` for rendering. Has `x`/`y` pixel coordinates and `angle` for radial. Rebuilt on every render from `FlatTree`; never mutated. `previewFlatTree` in the store holds a transient drag-preview tree that `buildLayout` is run on in parallel with the committed tree — the preview layout feeds `Branches` while labels stay on the committed layout.
+
+Pipeline: `parseNewick → flattenTree → (treeStore.flatTree) → buildLayout → LayoutNode tree → Branches`
 
 ### Web Workers
 
@@ -41,7 +59,7 @@ Choose the rendering primitive based on the use case:
 
 ### Module layout
 
-`src/MSA/`, `src/tree/`, and `src/NJ/` are independent feature modules. Each owns its types, components, hooks, stores, and utils. Cross-module communication goes through stores, not imports.
+`src/MSA/`, `src/tree/`, and `src/NJ/` are independent feature modules. Each owns its types, components, hooks, stores, and utils. Cross-module communication goes through stores (`sequenceStore`, `editStore`), not imports.
 
 Typical module structure:
 
@@ -60,7 +78,7 @@ ModuleName/
 
 ### Tests
 
-Co-located `*.test.ts` files (e.g. `MSA/utils/fasta.test.ts`, `tree/layout.test.ts`). Pure utility functions and store logic are the primary test targets.
+Co-located `*.test.ts` files (e.g. `MSA/utils/fasta.test.ts`, `tree/layout.test.ts`). Pure utility functions and store logic are the primary test targets. Store tests use `useStore.setState({…})` in `beforeEach` to reset to a known fixture.
 
 ---
 

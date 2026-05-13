@@ -126,6 +126,9 @@ export default function SequenceLabels({
 
     // innerRef has transform:translateY(offsetY) applied, so getBoundingClientRect().top
     // already accounts for the scroll offset — do NOT subtract offsetY again.
+    // Math.floor: rows are half-open ranges [i*rowHeight, (i+1)*rowHeight). Don't switch to
+    // Math.round — that's right for the SVG path (where leaves are points at i*yStep) but
+    // wrong here, where pointer Y inside row 0 would round up to row 1 at the row center.
     const containerRect = innerRef.current!.getBoundingClientRect();
     const relativeY = e.clientY - containerRect.top - paddingTop;
     const raw = Math.floor(relativeY / rowHeight);
@@ -172,7 +175,7 @@ export default function SequenceLabels({
         style={{ transform: `translateY(${offsetY}px)`, paddingTop, position: "relative" }}
       >
         {entries.map((entry, i) => {
-          const isDraggable = !entry.label && (entry.draggable ?? true);
+          const isDraggable = entry.draggable ?? true;
           const isDragged = dragging?.index === i;
           const shift =
             dragging !== null && hoverIndex !== null
@@ -377,7 +380,7 @@ export default function SequenceLabels({
             zIndex: 100,
           }}
         >
-          {resolveDisplayName(entries[dragging.index].id, edits)}
+          {entries[dragging.index].label ?? resolveDisplayName(entries[dragging.index].id, edits)}
         </div>
       )}
     </div>

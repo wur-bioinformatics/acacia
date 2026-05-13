@@ -7,6 +7,7 @@ type NodeCircleProps = {
   isSelected: boolean;
   color: string;
   onClick: (e: React.MouseEvent<SVGCircleElement>) => void;
+  dataNodeId?: string;
 };
 
 export default function NodeCircle({
@@ -16,6 +17,7 @@ export default function NodeCircle({
   isSelected,
   color,
   onClick,
+  dataNodeId,
 }: NodeCircleProps): JSX.Element {
   return (
     <circle
@@ -25,7 +27,8 @@ export default function NodeCircle({
       fill={isSelected ? "#3b82f6" : color}
       stroke={isSelected ? "#1d4ed8" : "none"}
       strokeWidth={2}
-      style={{ cursor: "pointer" }}
+      style={{ cursor: dataNodeId ? "grab" : "pointer" }}
+      data-nodeid={dataNodeId}
       onClick={(e) => {
         e.stopPropagation();
         onClick(e);
