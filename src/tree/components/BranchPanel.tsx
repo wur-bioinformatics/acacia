@@ -3,6 +3,10 @@ import type { JSX } from "react";
 import { branchKey, findLayoutNode, getSubtreeNodes } from "../layout";
 import type { LayoutNode, PanelState } from "../types";
 import { useTreeStore } from "../treeStore";
+import { cn } from "@/lib/utils";
+
+const itemClass =
+  "flex items-center gap-2 w-full rounded-sm px-2 py-1.5 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground outline-none";
 
 export default function BranchPanel({
   panel,
@@ -72,53 +76,47 @@ export default function BranchPanel({
         top: panel.y + 8,
         margin: 0,
       }}
-      className="menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-300 min-w-max p-2"
+      className="bg-popover text-popover-foreground rounded-md border shadow-md min-w-max p-1"
     >
-      <li>
-        <button onClick={handleReroot}>Reroot here</button>
-      </li>
-      <li>
-        <label>
-          Color branch…
+      <button className={itemClass} onClick={handleReroot}>
+        Reroot here
+      </button>
+      <label className={cn(itemClass, "justify-between")}>
+        Color branch…
+        <input
+          type="color"
+          colorspace="display-p3"
+          className="sr-only"
+          value={currentColor}
+          onChange={(e) => handleColorBranch(e.target.value)}
+        />
+      </label>
+      {!panel.isLeaf && (
+        <label className={cn(itemClass, "justify-between")}>
+          Color clade branches…
           <input
             type="color"
             colorspace="display-p3"
             className="sr-only"
             value={currentColor}
-            onChange={(e) => handleColorBranch(e.target.value)}
+            onChange={(e) => handleColorClade(e.target.value)}
           />
         </label>
-      </li>
-      {!panel.isLeaf && (
-        <li>
-          <label>
-            Color clade branches…
-            <input
-              type="color"
-              colorspace="display-p3"
-              className="sr-only"
-              value={currentColor}
-              onChange={(e) => handleColorClade(e.target.value)}
-            />
-          </label>
-        </li>
       )}
-      <li>
-        <button onClick={handleClearBranch}>Clear branch style</button>
-      </li>
+      <button className={itemClass} onClick={handleClearBranch}>
+        Clear branch style
+      </button>
       {!panel.isLeaf && (
-        <li>
-          <button onClick={handleClearClade}>Clear clade branch styles</button>
-        </li>
-      )}
-      <li>
-        <button
-          className="opacity-50"
-          onClick={() => ref.current?.hidePopover()}
-        >
-          ✕ Close
+        <button className={itemClass} onClick={handleClearClade}>
+          Clear clade branch styles
         </button>
-      </li>
+      )}
+      <button
+        className={cn(itemClass, "opacity-50")}
+        onClick={() => ref.current?.hidePopover()}
+      >
+        ✕ Close
+      </button>
     </div>
   );
 }

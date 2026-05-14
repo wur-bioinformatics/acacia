@@ -2,6 +2,7 @@ import type { JSX } from "react";
 import { branchKey } from "../layout";
 import type { BranchesProps, RadialGeomProps } from "../types";
 import { useTreeStore } from "../treeStore";
+import { matchesQuery } from "../utils/search";
 import { RADIAL_LABEL_GAP } from "../constants";
 import NodeCircle from "./NodeCircle";
 import { computeGeometry, toCartesian } from "./branchGeometry";
@@ -19,6 +20,7 @@ export default function Branches(props: BranchesProps): JSX.Element {
   const showBootstrap = useTreeStore((s) => s.showBootstrap);
   const bootstrapThreshold = useTreeStore((s) => s.bootstrapThreshold);
   const searchQuery = useTreeStore((s) => s.searchQuery);
+  const searchUseRegex = useTreeStore((s) => s.searchUseRegex);
   const dragEnabled = useTreeStore((s) => s.dragEnabled);
   const branchWidth = useTreeStore((s) => s.branchWidth);
   const labelFontSize = useTreeStore((s) => s.labelFontSize);
@@ -27,7 +29,7 @@ export default function Branches(props: BranchesProps): JSX.Element {
 
   const leafName = isLeaf ? node.name : "";
   const searchActive = searchQuery.length > 0;
-  const searchMatch = searchActive && leafName.toLowerCase().includes(searchQuery.toLowerCase());
+  const searchMatch = searchActive && matchesQuery(leafName, searchQuery, searchUseRegex);
   const searchOpacity = searchActive && isLeaf && !searchMatch ? 0.2 : 1;
 
   const branchCol = branchStyleColor ?? styleColor ?? "#333";

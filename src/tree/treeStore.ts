@@ -81,20 +81,25 @@ type TreeState = {
   // Hide bootstrap labels with value below this threshold (0 = show all).
   bootstrapThreshold: number;
   searchQuery: string;
+  searchUseRegex: boolean;
   dragEnabled: boolean;
   // Style sliders.
   branchWidth: number;
   labelFontSize: number;
   nodeRadius: number;
   showBranchLengths: boolean;
+  showScaleBar: boolean;
 
   setLayoutMode: (mode: LayoutMode) => void;
   setYStep: (yStep: number) => void;
   setXZoom: (xZoom: number) => void;
   setRadialPan: (pan: { x: number; y: number }) => void;
   setRadialZoom: (zoom: number) => void;
-  resetRadialView: () => void;
+  // Resets all pan/zoom (both rect xZoom and radial pan/zoom) without touching layout/styles.
+  resetZoom: () => void;
   resetStyles: () => void;
+  // Full reset: original root, cleared styles/selection/collapse, cleared search, reset zoom.
+  resetAll: () => void;
   // Called when a new tree is loaded — replaces flatTree, clears all state.
   setFlatTree: (ft: FlatTree) => void;
   // Resets back to the originally loaded tree (O(1)), clearing styles and collapsed.
@@ -112,11 +117,13 @@ type TreeState = {
   setShowBootstrap: (show: boolean) => void;
   setBootstrapThreshold: (n: number) => void;
   setSearchQuery: (q: string) => void;
+  setSearchUseRegex: (b: boolean) => void;
   setDragEnabled: (enabled: boolean) => void;
   setBranchWidth: (n: number) => void;
   setLabelFontSize: (n: number) => void;
   setNodeRadius: (n: number) => void;
   setShowBranchLengths: (b: boolean) => void;
+  setShowScaleBar: (b: boolean) => void;
   // Topologically removes every non-root internal node whose parsed bootstrap
   // value is below `threshold`, producing polytomies. Snapshots the current
   // tree first so revertBootstrapCollapse can restore it.
@@ -151,11 +158,13 @@ export const useTreeStore = create<TreeState>((set) => ({
   showBootstrap: true,
   bootstrapThreshold: 0,
   searchQuery: "",
+  searchUseRegex: false,
   dragEnabled: true,
   branchWidth: 1,
   labelFontSize: 12,
   nodeRadius: 3,
   showBranchLengths: false,
+  showScaleBar: true,
 
   setLayoutMode: (layoutMode) => set({ layoutMode, xZoom: 1, radialPan: { x: 0, y: 0 }, radialZoom: 1 }),
 
@@ -167,9 +176,20 @@ export const useTreeStore = create<TreeState>((set) => ({
 
   setRadialZoom: (radialZoom) => set({ radialZoom: Math.max(0.1, Math.min(20, radialZoom)) }),
 
-  resetRadialView: () => set({ radialPan: { x: 0, y: 0 }, radialZoom: 1 }),
+  resetZoom: () => set({ xZoom: 1, radialPan: { x: 0, y: 0 }, radialZoom: 1 }),
 
   resetStyles: () => set({ ...VIEW_STATE_RESET }),
+
+  resetAll: () =>
+    set({
+      flatTree: _originalFlatTree,
+      ...VIEW_STATE_RESET,
+      preCollapseFlatTree: null,
+      searchQuery: "",
+      xZoom: 1,
+      radialPan: { x: 0, y: 0 },
+      radialZoom: 1,
+    }),
 
   setFlatTree: (ft) => {
     _originalFlatTree = ft;
@@ -247,6 +267,8 @@ export const useTreeStore = create<TreeState>((set) => ({
 
   setSearchQuery: (searchQuery) => set({ searchQuery }),
 
+  setSearchUseRegex: (searchUseRegex) => set({ searchUseRegex }),
+
   setDragEnabled: (dragEnabled) => set({ dragEnabled }),
 
   setBranchWidth: (branchWidth) => set({ branchWidth: Math.max(0.5, Math.min(6, branchWidth)) }),
@@ -256,6 +278,8 @@ export const useTreeStore = create<TreeState>((set) => ({
   setNodeRadius: (nodeRadius) => set({ nodeRadius: Math.max(0, Math.min(8, nodeRadius)) }),
 
   setShowBranchLengths: (showBranchLengths) => set({ showBranchLengths }),
+
+  setShowScaleBar: (showScaleBar) => set({ showScaleBar }),
 
   collapseBelowBootstrap: (threshold) =>
     set((s) => {

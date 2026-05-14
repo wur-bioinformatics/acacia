@@ -6,6 +6,10 @@ import {
 } from "../layout";
 import type { LayoutNode, PanelState } from "../types";
 import { useTreeStore } from "../treeStore";
+import { cn } from "@/lib/utils";
+
+const itemClass =
+  "flex items-center gap-2 w-full rounded-sm px-2 py-1.5 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground outline-none";
 
 export default function NodePanel({
   panel,
@@ -85,90 +89,79 @@ export default function NodePanel({
         top: panel.y + 8,
         margin: 0,
       }}
-      className="menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-300 min-w-max p-2"
+      className="bg-popover text-popover-foreground rounded-md border shadow-md min-w-max p-1"
     >
-      <li>
-        <button onClick={handleReroot}>Reroot here</button>
-      </li>
+      <button className={itemClass} onClick={handleReroot}>
+        Reroot here
+      </button>
       {!panel.isLeaf && (
         <>
-          <li>
-            <button onClick={handleRotate}>Rotate children</button>
-          </li>
-          <li>
-            <label>
-              Color clade…
-              <input
-                type="color"
-                colorspace="display-p3"
-                className="sr-only"
-                value={currentColor}
-                onChange={(e) => handleColorClade(e.target.value)}
-              />
-            </label>
-          </li>
+          <button className={itemClass} onClick={handleRotate}>
+            Rotate children
+          </button>
+          <label className={cn(itemClass, "justify-between")}>
+            Color clade…
+            <input
+              type="color"
+              colorspace="display-p3"
+              className="sr-only"
+              value={currentColor}
+              onChange={(e) => handleColorClade(e.target.value)}
+            />
+          </label>
         </>
       )}
       {(!panel.isLeaf || isCollapsed) && (
-        <>
-          <li>
-            <button
-              onClick={() => {
-                toggleCollapse(panel.id);
-                ref.current?.hidePopover();
-              }}
-            >
-              {isCollapsed ? "Expand clade" : "Collapse clade"}
-            </button>
-          </li>
-        </>
-      )}
-      <li>
-        <label>
-          Color {panel.isLeaf ? "leaf" : "node"}…
-          <input
-            type="color"
-            colorspace="display-p3"
-            className="sr-only"
-            value={currentColor}
-            onChange={(e) => setNodeStyle(styleKey, { color: e.target.value })}
-          />
-        </label>
-      </li>
-      <li>
         <button
-          onClick={() =>
-            setNodeStyle(styleKey, {
-              labelBold: !(currentStyle?.labelBold ?? false),
-            })
-          }
-        >
-          {currentStyle?.labelBold ? "Normal label" : "Bold label"}
-        </button>
-      </li>
-      <li>
-        <button
+          className={itemClass}
           onClick={() => {
-            clearNodeStyle(styleKey);
+            toggleCollapse(panel.id);
             ref.current?.hidePopover();
           }}
         >
-          Clear style
+          {isCollapsed ? "Expand clade" : "Collapse clade"}
         </button>
-      </li>
-      {!panel.isLeaf && (
-        <li>
-          <button onClick={handleClearClade}>Clear clade styles</button>
-        </li>
       )}
-      <li>
-        <button
-          className="opacity-50"
-          onClick={() => ref.current?.hidePopover()}
-        >
-          ✕ Close
+      <label className={cn(itemClass, "justify-between")}>
+        Color {panel.isLeaf ? "leaf" : "node"}…
+        <input
+          type="color"
+          colorspace="display-p3"
+          className="sr-only"
+          value={currentColor}
+          onChange={(e) => setNodeStyle(styleKey, { color: e.target.value })}
+        />
+      </label>
+      <button
+        className={itemClass}
+        onClick={() =>
+          setNodeStyle(styleKey, {
+            labelBold: !(currentStyle?.labelBold ?? false),
+          })
+        }
+      >
+        {currentStyle?.labelBold ? "Normal label" : "Bold label"}
+      </button>
+      <button
+        className={itemClass}
+        onClick={() => {
+          clearNodeStyle(styleKey);
+          ref.current?.hidePopover();
+        }}
+      >
+        Clear style
+      </button>
+      {!panel.isLeaf && (
+        <button className={itemClass} onClick={handleClearClade}>
+          Clear clade styles
         </button>
-      </li>
+      )}
+      <button
+        className={cn(itemClass, "opacity-50")}
+        onClick={() => ref.current?.hidePopover()}
+      >
+        ✕ Close
+      </button>
     </div>
   );
 }

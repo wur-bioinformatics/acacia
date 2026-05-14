@@ -1,3 +1,4 @@
+import path from "node:path";
 import { defineConfig } from "vitest/config";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
@@ -9,6 +10,9 @@ export default defineConfig({
   base: "/",
   build: {
     target: "esnext",
+  },
+  resolve: {
+    alias: { "@": path.resolve(__dirname, "./src") },
   },
   plugins: [wasm(), react(), svgr(), tailwindcss()],
   worker: {

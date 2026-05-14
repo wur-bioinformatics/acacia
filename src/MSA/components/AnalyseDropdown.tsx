@@ -1,5 +1,6 @@
 import type { JSX } from "react";
 import { useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
 import type { NJConfig } from "@holmrenser/nj";
 
 type SubstitutionModel = NJConfig["substitution_model"];
@@ -11,6 +12,15 @@ import { useViewStore } from "../../viewStore";
 import type { SequenceType } from "../types";
 import { useEditStore } from "../../editStore";
 import { applyEdits } from "../../editUtils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 type SubstitutionModelOption = {
   value: string;
@@ -26,7 +36,7 @@ const SUBSTITUTION_MODELS: SubstitutionModelOption[] = [
   { value: "Poisson", label: "Poisson", description: "protein only", sequenceType: "Protein" },
 ];
 
-export default function AnalyseDropdown({ id }: { id: string }): JSX.Element {
+export default function AnalyseDropdown(): JSX.Element {
   const { runNJ } = useNJWorker();
   const { msaData } = useMSAStore();
   const { sequenceTypeOverride } = useDrawStore();
@@ -42,6 +52,7 @@ export default function AnalyseDropdown({ id }: { id: string }): JSX.Element {
 
   const effectiveType = sequenceTypeOverride ?? detectedSequenceType;
 
+  const [open, setOpen] = useState(false);
   const [substitutionModel, setSubstitutionModel] = useState<SubstitutionModel>("PDiff");
   const [nBootstrapSamples, setNBootstrapSamples] = useState(100);
 
@@ -54,7 +65,7 @@ export default function AnalyseDropdown({ id }: { id: string }): JSX.Element {
 
   function handleRunNJ() {
     setRunning();
-    document.getElementById(id)?.hidePopover();
+    setOpen(false);
     const { originalMSA, edits } = useEditStore.getState();
     const effectiveMSA = originalMSA.length > 0 ? applyEdits(originalMSA, edits) : msaData;
     const njConfig: NJConfig = {
@@ -81,45 +92,40 @@ export default function AnalyseDropdown({ id }: { id: string }): JSX.Element {
   }
 
   return (
-    <ul
-      id={id}
-      popover="auto"
-      className="dropdown menu menu-sm bg-base-100 rounded-box shadow-lg min-w-max p-2"
-      style={{ positionAnchor: `--${id}` }}
-    >
-      <li>
-        <a className="menu-title">Build NJ tree</a>
-      </li>
-      <li>
-        <a className="menu-title">Substitution model</a>
-        <ul>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm">Analyse</Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-max p-2">
+        <DropdownMenuLabel>Build NJ tree</DropdownMenuLabel>
+        <DropdownMenuLabel className="text-xs text-muted-foreground pt-2">
+          Substitution model
+        </DropdownMenuLabel>
+        <RadioGroup
+          value={substitutionModel}
+          onValueChange={(v) => setSubstitutionModel(v as SubstitutionModel)}
+          className="gap-1 px-2"
+        >
           {SUBSTITUTION_MODELS.map(({ value, label, description, sequenceType }) => {
             const disabled = sequenceType !== null && sequenceType !== effectiveType;
             return (
-              <li key={value} className={disabled ? "opacity-30" : ""}>
-                <label className={`flex items-center gap-2 whitespace-nowrap ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}>
-                  <input
-                    type="radio"
-                    className="radio radio-xs"
-                    name="substitutionModel"
-                    checked={substitutionModel === value}
-                    disabled={disabled}
-                    onChange={() => setSubstitutionModel(value as SubstitutionModel)}
-                  />
-                  <span>{label}</span>
-                  <span className="opacity-40 text-xs">{description}</span>
-                </label>
-              </li>
+              <label
+                key={value}
+                className={`flex items-center gap-2 whitespace-nowrap text-sm ${disabled ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}
+              >
+                <RadioGroupItem value={value} disabled={disabled} className="size-3" />
+                <span>{label}</span>
+                <span className="opacity-40 text-xs">{description}</span>
+              </label>
             );
           })}
-        </ul>
-      </li>
-      <li>
-        <label className="flex items-center justify-between gap-6 cursor-pointer">
+        </RadioGroup>
+        <label className="flex items-center justify-between gap-6 px-2 py-1.5 text-sm">
           Bootstrap replicates
-          <input
+          <Input
             type="number"
-            className="input input-xs w-20 text-center"
+            size="xs"
+            className="w-20 text-center"
             min={0}
             step={100}
             value={nBootstrapSamples}
@@ -128,23 +134,24 @@ export default function AnalyseDropdown({ id }: { id: string }): JSX.Element {
             }
           />
         </label>
-      </li>
-      <li className="mt-1">
-        <button
-          className="btn btn-xs btn-primary w-full"
-          onClick={handleRunNJ}
-          disabled={njStatus === "running"}
-        >
-          {njStatus === "running" ? (
-            <>
-              <span className="loading loading-spinner loading-xs" />
-              Running…
-            </>
-          ) : (
-            "Run"
-          )}
-        </button>
-      </li>
-    </ul>
+        <div className="px-2 pt-1">
+          <Button
+            size="xs"
+            className="w-full"
+            onClick={handleRunNJ}
+            disabled={njStatus === "running"}
+          >
+            {njStatus === "running" ? (
+              <>
+                <Loader2 className="size-3 animate-spin" />
+                Running…
+              </>
+            ) : (
+              "Run"
+            )}
+          </Button>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

@@ -7,6 +7,7 @@ import { useMSAStore } from "../stores/msaStore";
 import { COLOR_SCHEME_GROUPS, DEFAULT_COLOR_SCHEME } from "../colourSchemes";
 import type { SequenceType } from "../types";
 import UndoRedoButtons from "../../UndoRedoButtons";
+import { Switch } from "@/components/ui/switch";
 
 export default function MSAToolbar(): JSX.Element {
   const { sequenceTypeOverride, setSequenceTypeOverride, drawOptions: { colorStyle }, setDrawOptions } = useDrawStore();
@@ -25,55 +26,34 @@ export default function MSAToolbar(): JSX.Element {
   }
 
   return (
-    <>
-      <div className="flex items-center gap-2 bg-base-200 rounded-box rounded-b-none px-1 w-full">
-        <ul className="menu menu-sm menu-horizontal">
-          <li>
-            <button
-              popoverTarget="msa-analyse-menu"
-              style={{ anchorName: "--msa-analyse-menu" }}
-            >
-              Analyse
-            </button>
-          </li>
-          <li>
-            <button
-              popoverTarget="msa-view-menu"
-              style={{ anchorName: "--msa-view-menu" }}
-            >
-              View
-            </button>
-          </li>
-        </ul>
+    <div className="flex items-center gap-1 bg-muted rounded-t-md px-1 py-1">
+      <AnalyseDropdown />
+      <ViewDropdown />
 
-        <SearchBar />
+      <UndoRedoButtons />
 
-        <UndoRedoButtons />
+      <SearchBar />
 
-        {/* Sequence type toggle */}
-        <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none ml-auto pr-1" title="Sequence type">
-          <span
-            className={effectiveType === "DNA" ? "font-semibold" : "opacity-50"}
-            onClick={() => handleTypeChange("DNA")}
-          >
-            DNA{detectedSequenceType === "DNA" ? " (autodetected)" : ""}
-          </span>
-          <input
-            type="checkbox"
-            className="toggle toggle-xs"
-            checked={effectiveType === "Protein"}
-            onChange={(e) => handleTypeChange(e.target.checked ? "Protein" : "DNA")}
-          />
-          <span
-            className={effectiveType === "Protein" ? "font-semibold" : "opacity-50"}
-            onClick={() => handleTypeChange("Protein")}
-          >
-            Protein{detectedSequenceType === "Protein" ? " (autodetected)" : ""}
-          </span>
-        </label>
-      </div>
-      <AnalyseDropdown id="msa-analyse-menu" />
-      <ViewDropdown id="msa-view-menu" />
-    </>
+      {/* Sequence type toggle */}
+      <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none ml-auto pr-1" title="Sequence type">
+        <span
+          className={effectiveType === "DNA" ? "font-semibold" : "opacity-50"}
+          onClick={() => handleTypeChange("DNA")}
+        >
+          DNA{detectedSequenceType === "DNA" ? " (autodetected)" : ""}
+        </span>
+        <Switch
+          size="sm"
+          checked={effectiveType === "Protein"}
+          onCheckedChange={(checked) => handleTypeChange(checked ? "Protein" : "DNA")}
+        />
+        <span
+          className={effectiveType === "Protein" ? "font-semibold" : "opacity-50"}
+          onClick={() => handleTypeChange("Protein")}
+        >
+          Protein{detectedSequenceType === "Protein" ? " (autodetected)" : ""}
+        </span>
+      </label>
+    </div>
   );
 }

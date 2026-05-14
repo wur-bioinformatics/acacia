@@ -30,6 +30,7 @@ import MSAToolbar from "./components/MSAToolbar";
 import MSALabels from "./components/MSALabels";
 import TrackCanvas from "./components/TrackCanvas";
 import { CanvasProvider } from "./context/CanvasContext";
+import { Button } from "@/components/ui/button";
 
 function MSACanvas({
   isMinimap = false,
@@ -99,7 +100,7 @@ function MSACanvas({
             bottom: 0,
             zIndex: 3,
             pointerEvents: "none",
-            backgroundColor: "var(--color-base-100)",
+            backgroundColor: "var(--color-background)",
             opacity: isRendering ? 0.4 : 0,
             transition: "opacity 0.15s ease 0.15s",
           }}
@@ -127,7 +128,7 @@ function MSAInput() {
       <p className="text-sm opacity-40 mb-2">
         Explore sequence alignments and phylogenetic trees in a web browser.
       </p>
-      <label className="flex flex-col items-center gap-2 px-12 py-10 border-2 border-dashed border-base-300 rounded-2xl cursor-pointer hover:border-primary transition-colors group">
+      <label className="flex flex-col items-center gap-2 px-12 py-10 border-2 border-dashed border rounded-2xl cursor-pointer hover:border-primary transition-colors group">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="28"
@@ -154,12 +155,14 @@ function MSAInput() {
         />
       </label>
       <span className="text-xs opacity-25">or</span>
-      <button
-        className="btn btn-ghost btn-sm opacity-50 hover:opacity-100"
+      <Button
+        variant="ghost"
+        size="sm"
+        className="opacity-50 hover:opacity-100"
         onClick={() => setMSAData(exampleMsa)}
       >
         load example data
-      </button>
+      </Button>
     </div>
   );
 }
@@ -292,7 +295,7 @@ function MSAInner(): JSX.Element {
                 onTouchStart={onMinimapDivTouchStart}
                 style={{ cursor: "row-resize", height: 6, display: "flex", alignItems: "center" }}
               >
-                <div className="h-px w-full bg-base-300 group-hover:bg-primary transition-colors" />
+                <div className="h-px w-full bg-accent group-hover:bg-primary transition-colors" />
               </div>
             </>
           )}
@@ -350,7 +353,7 @@ function MSAInner(): JSX.Element {
               onTouchStart={onTrackDivTouchStart}
               style={{ cursor: "row-resize", height: 6, display: "flex", alignItems: "center" }}
             >
-              <div className="h-px w-full bg-base-300 group-hover:bg-primary transition-colors" />
+              <div className="h-px w-full bg-accent group-hover:bg-primary transition-colors" />
             </div>
           )}
 
@@ -378,14 +381,14 @@ function MSAInner(): JSX.Element {
                   justifyContent: "center",
                 }}
               >
-                <div className="w-px h-full bg-base-300 group-hover:bg-primary transition-colors" />
+                <div className="w-px h-full bg-accent group-hover:bg-primary transition-colors" />
               </div>
             )}
             <MSACanvas width={canvasWidth} msaData={orderedMsaData} />
           </div>
 
           {/* Status bar */}
-          <div className="flex items-center gap-4 border-t border-base-200 mt-2 pt-1 text-xs font-mono opacity-35">
+          <div className="flex items-center gap-4 border-t border-muted mt-2 pt-1 text-xs font-mono opacity-35">
             <span>
               {nRows} sequences · {nCols} sites
             </span>
@@ -407,7 +410,7 @@ function MSAInner(): JSX.Element {
               </span>
             )}
             {njStatus === "error" && (
-              <span className="ml-auto font-sans text-error opacity-100">
+              <span className="ml-auto font-sans text-destructive opacity-100">
                 tree build failed
               </span>
             )}

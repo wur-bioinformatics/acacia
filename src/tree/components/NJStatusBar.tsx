@@ -37,7 +37,7 @@ export default function NJStatusBar(): JSX.Element | null {
   const stats = flatTree ? treeStatsLabel() : null;
   if (!njParams && !stats) return null;
   return (
-    <div className="flex items-center gap-4 border-t border-base-200 mt-2 pt-1 text-xs font-mono opacity-35 px-1">
+    <div className="flex items-center gap-4 border-t border-muted mt-2 pt-1 text-xs font-mono opacity-35 px-1">
       {njParams && <span>{njParamLabel(njParams)}</span>}
       {stats && <span className="ml-auto">{stats}</span>}
     </div>

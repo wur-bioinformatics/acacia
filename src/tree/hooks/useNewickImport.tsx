@@ -3,6 +3,15 @@ import { flattenTree, parseNewick } from "../layout";
 import { useTreeStore } from "../treeStore";
 import { useSequenceStore } from "../../sequenceStore";
 import type { FlatTree } from "../types";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type ValidationResult =
   | { ok: true; ft: FlatTree; leafNames: string[]; onlyInTree: string[]; onlyInMSA: string[] }
@@ -32,7 +41,7 @@ function validate(text: string, msaOrder: readonly string[]): ValidationResult {
   return { ok: true, ft, leafNames, onlyInTree, onlyInMSA };
 }
 
-export default function ImportNewickButton(): JSX.Element {
+export function useNewickImport(): { openPicker: () => void; elements: JSX.Element } {
   const fileRef = useRef<HTMLInputElement>(null);
   const [modal, setModal] = useState<{
     ft: FlatTree;
@@ -47,7 +56,7 @@ export default function ImportNewickButton(): JSX.Element {
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    e.target.value = ""; // reset so same file can be re-imported
+    e.target.value = "";
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result;
@@ -74,7 +83,7 @@ export default function ImportNewickButton(): JSX.Element {
     setModal(null);
   }
 
-  return (
+  const elements = (
     <>
       <input
         ref={fileRef}
@@ -83,59 +92,66 @@ export default function ImportNewickButton(): JSX.Element {
         className="hidden"
         onChange={handleFile}
       />
-      <button onClick={() => fileRef.current?.click()}>Import tree</button>
 
       {parseError && (
-        <div
-          role="alert"
-          className="alert alert-error text-xs py-1 px-3 fixed bottom-4 left-1/2 -translate-x-1/2 z-50 max-w-md shadow-lg"
+        <Alert
+          variant="destructive"
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 max-w-md shadow-lg py-1 px-3"
         >
-          <span>{parseError}</span>
-          <button className="btn btn-xs btn-ghost" onClick={() => setParseError(null)}>
-            ✕
-          </button>
-        </div>
+          <AlertDescription className="text-xs flex items-center justify-between gap-2">
+            <span>{parseError}</span>
+            <Button variant="ghost" size="xs" onClick={() => setParseError(null)}>
+              ✕
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
-      {modal && (
-        <dialog open className="modal modal-open">
-          <div className="modal-box max-w-md">
-            <h3 className="font-bold text-sm mb-2">Import tree — name mismatches</h3>
-            <p className="text-xs text-base-content/70 mb-3">
-              {modal.onlyInTree.length} tree{" "}
-              {modal.onlyInTree.length === 1 ? "leaf" : "leaves"} not found in
-              the alignment. These will be missing from the linked view.
-            </p>
-            <div className="bg-base-200 rounded p-2 text-xs font-mono max-h-40 overflow-y-auto mb-3">
-              {modal.onlyInTree.map((n) => (
-                <div key={n} className="text-warning">{n}</div>
-              ))}
-            </div>
-            {modal.onlyInMSA.length > 0 && (
-              <p className="text-xs text-base-content/70 mb-3">
-                {modal.onlyInMSA.length} alignment{" "}
-                {modal.onlyInMSA.length === 1 ? "sequence" : "sequences"} not
-                in tree — {modal.onlyInMSA.length === 1 ? "it" : "they"} will
-                be appended after tree leaves.
+      <Dialog open={modal !== null} onOpenChange={(o) => !o && setModal(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Import tree — name mismatches</DialogTitle>
+          </DialogHeader>
+          {modal && (
+            <>
+              <p className="text-xs text-muted-foreground">
+                {modal.onlyInTree.length} tree{" "}
+                {modal.onlyInTree.length === 1 ? "leaf" : "leaves"} not found in
+                the alignment. These will be missing from the linked view.
               </p>
-            )}
-            <div className="modal-action gap-2">
-              <button className="btn btn-sm" onClick={() => setModal(null)}>
-                Cancel
-              </button>
-              <button
-                className="btn btn-sm btn-primary"
-                onClick={() => commitImport(modal.ft, modal.leafNames)}
-              >
-                Import anyway
-              </button>
-            </div>
-          </div>
-          <form method="dialog" className="modal-backdrop">
-            <button onClick={() => setModal(null)}>close</button>
-          </form>
-        </dialog>
-      )}
+              <div className="bg-muted rounded p-2 text-xs font-mono max-h-40 overflow-y-auto">
+                {modal.onlyInTree.map((n) => (
+                  <div key={n} className="text-yellow-700 dark:text-yellow-400">{n}</div>
+                ))}
+              </div>
+              {modal.onlyInMSA.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {modal.onlyInMSA.length} alignment{" "}
+                  {modal.onlyInMSA.length === 1 ? "sequence" : "sequences"} not
+                  in tree — {modal.onlyInMSA.length === 1 ? "it" : "they"} will
+                  be appended after tree leaves.
+                </p>
+              )}
+              <DialogFooter>
+                <Button variant="outline" size="sm" onClick={() => setModal(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => commitImport(modal.ft, modal.leafNames)}
+                >
+                  Import anyway
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
+
+  return {
+    openPicker: () => fileRef.current?.click(),
+    elements,
+  };
 }

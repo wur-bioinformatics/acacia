@@ -1,6 +1,7 @@
 import type { FlatTree, NodeId, NodeStyle } from "../types";
 import type { LayoutResult } from "../layout";
 import { collectVisible } from "./drag";
+import { matchesQuery } from "./search";
 
 // ---------------------------------------------------------------------------
 // Newick serialization
@@ -29,6 +30,7 @@ export function flatTreeToNewick(tree: FlatTree): string {
 export type ExportStyleContext = {
   nodeStyles: ReadonlyMap<string, NodeStyle>;
   searchQuery: string;
+  searchUseRegex: boolean;
   selectedNodeId: NodeId | null;
   labelFontSize: number;
 };
@@ -66,7 +68,7 @@ export function serializeTreeSVG(
     const g = clone.querySelector("g");
     if (g) {
       const rows = collectVisible(layoutResult.root, collapsedNodes);
-      const { nodeStyles, searchQuery, selectedNodeId, labelFontSize } = styleContext;
+      const { nodeStyles, searchQuery, searchUseRegex, selectedNodeId, labelFontSize } = styleContext;
       const searchActive = searchQuery.length > 0;
 
       for (const row of rows) {
@@ -77,7 +79,7 @@ export function serializeTreeSVG(
         const isSelected = selectedNodeId === row.id;
         const displayName = isCollapsed ? `${row.leafCount} sequences` : row.name;
         const matchesSearch =
-          searchActive && displayName.toLowerCase().includes(searchQuery.toLowerCase());
+          searchActive && matchesQuery(displayName, searchQuery, searchUseRegex);
 
         const fill = isSelected ? "#3b82f6" : (style?.color ?? "#111");
         const fontWeight = style?.labelBold || matchesSearch ? "bold" : "normal";

@@ -1,12 +1,14 @@
 import MSA from "./MSA";
 import Tree from "./tree";
 import { DistanceMatrix } from "./NJ";
-import React, { JSX, useState, useEffect } from "react";
+import { type JSX, useState, useEffect } from "react";
 import { AcaciaBrand } from "./AcaciaLogo";
 import { viewOptions, useViewStore, type View } from "./viewStore";
 import { useNJStore } from "./NJ/njStore";
 import { useDrawStore } from "./MSA/stores/drawStore";
 import { version } from "../package.json";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 
 function ViewDispatcher({ view }: { view: View }): JSX.Element | null {
   switch (view) {
@@ -34,7 +36,7 @@ export default function Acacia(): JSX.Element {
   const setDrawOptions = useDrawStore((s) => s.setDrawOptions);
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
+    document.documentElement.classList.toggle("dark", theme === "dark");
     localStorage.setItem("theme", theme);
     setDrawOptions({ darkMode: theme === "dark" });
   }, [theme, setDrawOptions]);
@@ -47,9 +49,11 @@ export default function Acacia(): JSX.Element {
     <div className="min-h-screen flex flex-col">
       <div className="flex-1 max-w-screen mx-auto w-full px-3 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8">
         <div className="relative">
-          <div className="absolute top-0 right-0 flex items-center h-8">
-            <button
-              className="btn btn-ghost btn-sm opacity-50 hover:opacity-100 transition-opacity"
+          <div className="absolute top-0 right-0 flex items-center h-8 z-10">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="opacity-50 hover:opacity-100 transition-opacity"
               onClick={toggleTheme}
               title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             >
@@ -63,29 +67,33 @@ export default function Acacia(): JSX.Element {
                   <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
                 </svg>
               )}
-            </button>
+            </Button>
           </div>
-        <div className="tabs tabs-lift">
-          {viewOptions.map((viewOption) => (
-            <React.Fragment key={viewOption}>
-              <input
-                type="radio"
-                name="tabs"
-                className="tab"
-                aria-label={viewOption}
-                checked={view === viewOption}
-                onChange={() => setView(viewOption)}
-                disabled={viewOption !== "MSA" && !treeReady}
-              />
-              <div className="tab-content bg-base-100 border-base-300 p-3 sm:p-4 md:p-6">
+          <Tabs value={view} onValueChange={(v) => setView(v as View)}>
+            <TabsList>
+              {viewOptions.map((viewOption) => (
+                <TabsTrigger
+                  key={viewOption}
+                  value={viewOption}
+                  disabled={viewOption !== "MSA" && !treeReady}
+                >
+                  {viewOption}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {viewOptions.map((viewOption) => (
+              <TabsContent
+                key={viewOption}
+                value={viewOption}
+                className="border border-border rounded-md p-3 sm:p-4 md:p-6"
+              >
                 <ViewDispatcher view={viewOption} />
-              </div>
-            </React.Fragment>
-          ))}
-        </div>
+              </TabsContent>
+            ))}
+          </Tabs>
         </div>
       </div>
-      <footer className="footer footer-horizontal bg-base-200 text-base-content border-t border-base-300 items-center px-6 py-3">
+      <footer className="flex items-center bg-muted text-foreground border-t px-6 py-3">
         <aside className="flex items-center gap-2 opacity-60">
           <AcaciaBrand size={18} />
           <span className="text-xs">v{version}</span>

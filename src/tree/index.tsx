@@ -19,6 +19,7 @@ import TreeToolbar from "./components/TreeToolbar";
 import ScaleBar from "./components/ScaleBar";
 import NJStatusBar from "./components/NJStatusBar";
 import { downloadFile, flatTreeToNewick, serializeTreePNG, serializeTreeSVG } from "./utils/export";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Tree(): JSX.Element {
   const { newick, status, error } = useNJStore();
@@ -32,9 +33,9 @@ export default function Tree(): JSX.Element {
     previewFlatTree,
     collapsedNodes,
     selectedNodeId,
+    showScaleBar,
     setSelectedNodeId,
     setFlatTree,
-    resetRadialView,
   } = useTreeStore();
 
   const [containerRef, containerWidth] = useContainerWidth();
@@ -137,10 +138,11 @@ export default function Tree(): JSX.Element {
   const handleExportSVG = useCallback(() => {
     if (!svgElRef.current || !layoutResult) return;
     const mode = isRadial ? "radial" : "rect";
-    const { nodeStyles, searchQuery, labelFontSize } = useTreeStore.getState();
+    const { nodeStyles, searchQuery, searchUseRegex, labelFontSize } = useTreeStore.getState();
     const svg = serializeTreeSVG(svgElRef.current, layoutResult, yStep, treeWidth, collapsedNodes, mode, {
       nodeStyles,
       searchQuery,
+      searchUseRegex,
       selectedNodeId,
       labelFontSize,
     });
@@ -150,10 +152,11 @@ export default function Tree(): JSX.Element {
   const handleExportPNG = useCallback(async () => {
     if (!svgElRef.current || !layoutResult) return;
     const mode = isRadial ? "radial" : "rect";
-    const { nodeStyles, searchQuery, labelFontSize } = useTreeStore.getState();
+    const { nodeStyles, searchQuery, searchUseRegex, labelFontSize } = useTreeStore.getState();
     const svg = serializeTreeSVG(svgElRef.current, layoutResult, yStep, treeWidth, collapsedNodes, mode, {
       nodeStyles,
       searchQuery,
+      searchUseRegex,
       selectedNodeId,
       labelFontSize,
     });
@@ -176,7 +179,7 @@ export default function Tree(): JSX.Element {
   if (status === "error") {
     return (
       <div ref={containerRef} className="p-4">
-        <p className="text-error">Tree error: {error}</p>
+        <p className="text-destructive">Tree error: {error}</p>
       </div>
     );
   }
@@ -213,25 +216,28 @@ export default function Tree(): JSX.Element {
   return (
     <div ref={containerRef} className="flex flex-col gap-0 h-full">
       {isStale && (
-        <div className="alert alert-warning py-1 px-3 text-xs rounded-none flex-shrink-0">
-          Alignment has been edited — re-run analysis to update the tree.
-        </div>
+        <Alert variant="warning" className="rounded-none py-1 px-3 flex-shrink-0">
+          <AlertDescription className="text-xs">
+            Alignment has been edited — re-run analysis to update the tree.
+          </AlertDescription>
+        </Alert>
       )}
       {unmatchedLeafNames.length > 0 && (
-        <div className="alert alert-warning py-1 px-3 text-xs rounded-none flex-shrink-0">
-          {unmatchedLeafNames.length} tree{" "}
-          {unmatchedLeafNames.length === 1 ? "leaf" : "leaves"} not found in
-          alignment:{" "}
-          {unmatchedLeafNames.length <= 3
-            ? unmatchedLeafNames.join(", ")
-            : `${unmatchedLeafNames.slice(0, 3).join(", ")} +${unmatchedLeafNames.length - 3} more`}
-        </div>
+        <Alert variant="warning" className="rounded-none py-1 px-3 flex-shrink-0">
+          <AlertDescription className="text-xs">
+            {unmatchedLeafNames.length} tree{" "}
+            {unmatchedLeafNames.length === 1 ? "leaf" : "leaves"} not found in
+            alignment:{" "}
+            {unmatchedLeafNames.length <= 3
+              ? unmatchedLeafNames.join(", ")
+              : `${unmatchedLeafNames.slice(0, 3).join(", ")} +${unmatchedLeafNames.length - 3} more`}
+          </AlertDescription>
+        </Alert>
       )}
       <TreeToolbar
         onExportSVG={handleExportSVG}
         onExportPNG={handleExportPNG}
         onExportNewick={handleExportNewick}
-        onResetView={resetRadialView}
       />
       <div style={{ overflowY: "auto", overflowX: isRadial ? "hidden" : "auto", flex: 1 }}>
         <div className="flex">
@@ -275,7 +281,7 @@ export default function Tree(): JSX.Element {
                     onNodeClick={handleNodeClick}
                     onBranchClick={handleBranchClick}
                   />
-                  {maxDepth > 0 && (
+                  {showScaleBar && maxDepth > 0 && (
                     <ScaleBar
                       scaleVal={Math.max(0, maxDepth * 0.1)}
                       scalePx={Math.max(0, maxDepth * 0.1) * xScale}
@@ -314,7 +320,7 @@ export default function Tree(): JSX.Element {
                   justifyContent: "center",
                 }}
               >
-                <div className="w-px bg-base-300 group-hover:bg-primary transition-colors" />
+                <div className="w-px bg-border group-hover:bg-primary transition-colors" />
               </div>
               <TreeLabels
                 layoutRoot={layoutRoot}

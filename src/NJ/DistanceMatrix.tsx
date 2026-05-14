@@ -7,6 +7,16 @@ import { resolveDisplayName } from "../editUtils";
 import { useShallow } from "zustand/react/shallow";
 import UndoRedoButtons from "../UndoRedoButtons";
 import SequenceLabels from "../SequenceLabels";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Button } from "@/components/ui/button";
 
 const CELL_WIDTH = 44;
 const CELL_HEIGHT = 22;
@@ -129,67 +139,55 @@ export default function DistanceMatrix(): JSX.Element {
   return (
     <div className="flex flex-col h-full">
       {isStale && (
-        <div className="alert alert-warning py-1 px-3 text-xs rounded-none flex-shrink-0">
-          Alignment has been edited — re-run analysis to update distances.
-        </div>
+        <Alert variant="warning" className="rounded-none py-1 px-3 flex-shrink-0">
+          <AlertDescription className="text-xs">
+            Alignment has been edited — re-run analysis to update distances.
+          </AlertDescription>
+        </Alert>
       )}
       {/* Toolbar */}
-      <div className="flex items-center gap-2 bg-base-200 rounded-box rounded-b-none px-1 flex-shrink-0">
-        <ul className="menu menu-sm menu-horizontal">
-          <li>
-            <button
-              popoverTarget="distance-view-menu"
-              style={{ anchorName: "--distance-view-menu" }}
+      <div className="flex items-center gap-1 bg-muted rounded-t-md px-1 py-1 flex-shrink-0">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm">View</Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-max p-2">
+            <DropdownMenuCheckboxItem
+              checked={showNumbers}
+              onCheckedChange={(c) => setShowNumbers(c)}
             >
-              View
-            </button>
-          </li>
-        </ul>
+              Show numbers
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuLabel className="text-xs text-muted-foreground pt-2">
+              Color scheme
+            </DropdownMenuLabel>
+            <RadioGroup
+              value={colorScheme}
+              onValueChange={(v) => setColorScheme(v as ColorScheme)}
+              className="gap-1 px-2"
+            >
+              {COLOR_SCHEMES.map(({ value, label }) => (
+                <label
+                  key={value}
+                  className="flex items-center gap-2 cursor-pointer whitespace-nowrap text-sm"
+                >
+                  <RadioGroupItem value={value} className="size-3" />
+                  {label}
+                </label>
+              ))}
+            </RadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <UndoRedoButtons />
         {avgDistance !== null && (
           <span className="ml-auto pr-1 text-xs font-medium opacity-70">
             Avg distance:{" "}
-            <span className="badge badge-neutral font-mono">{avgDistance.toFixed(4)}</span>
+            <span className="inline-flex items-center rounded-md bg-secondary px-1.5 py-0.5 text-secondary-foreground font-mono">
+              {avgDistance.toFixed(4)}
+            </span>
           </span>
         )}
       </div>
-      <ul
-        id="distance-view-menu"
-        popover="auto"
-        className="dropdown menu menu-sm bg-base-100 rounded-box shadow-lg min-w-max p-2"
-        style={{ positionAnchor: "--distance-view-menu" }}
-      >
-        <li>
-          <label className="flex items-center justify-between gap-6 cursor-pointer">
-            Show numbers
-            <input
-              type="checkbox"
-              className="toggle toggle-xs"
-              checked={showNumbers}
-              onChange={(e) => setShowNumbers(e.target.checked)}
-            />
-          </label>
-        </li>
-        <li>
-          <a className="menu-title pt-2">Color scheme</a>
-          <ul>
-            {COLOR_SCHEMES.map(({ value, label }) => (
-              <li key={value}>
-                <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
-                  <input
-                    type="radio"
-                    className="radio radio-xs"
-                    name="distanceColorScheme"
-                    checked={colorScheme === value}
-                    onChange={() => setColorScheme(value)}
-                  />
-                  {label}
-                </label>
-              </li>
-            ))}
-          </ul>
-        </li>
-      </ul>
 
       {/* Main area */}
       <div className="flex flex-1 overflow-hidden">
@@ -197,7 +195,7 @@ export default function DistanceMatrix(): JSX.Element {
         {/* Left labels panel — overflow:hidden, scrollTop synced by JS with the matrix */}
         <div
           ref={labelsRef}
-          className="flex-shrink-0 bg-base-100"
+          className="flex-shrink-0 bg-background"
           style={{ width: labelWidth, overflow: "hidden" }}
         >
           {/* Spacer matching the sticky column header height */}
@@ -220,7 +218,7 @@ export default function DistanceMatrix(): JSX.Element {
           onMouseDown={onDividerMouseDown}
           onTouchStart={onDividerTouchStart}
         >
-          <div className="w-px bg-base-300 group-hover:bg-primary transition-colors self-stretch" />
+          <div className="w-px bg-border group-hover:bg-primary transition-colors self-stretch" />
         </div>
 
         {/* Heatmap panel */}
@@ -231,7 +229,7 @@ export default function DistanceMatrix(): JSX.Element {
         >
           {/* Sticky column headers */}
           <div
-            className="sticky top-0 bg-base-100 z-10 flex"
+            className="sticky top-0 bg-background z-10 flex"
             style={{ height: HEADER_HEIGHT }}
           >
             {orderedNames.map((name) => {
@@ -266,7 +264,7 @@ export default function DistanceMatrix(): JSX.Element {
               {orderedNames.map((colName) => (
                 <div
                   key={colName}
-                  className="flex-shrink-0 flex items-center justify-center font-mono tabular-nums text-xs border border-base-200"
+                  className="flex-shrink-0 flex items-center justify-center font-mono tabular-nums text-xs border border-muted"
                   style={{ width: CELL_WIDTH, height: CELL_HEIGHT, ...cellStyle(rowName, colName) }}
                 >
                   {rowName === colName ? "—" : showNumbers ? matrix[nameToIndex.get(rowName)!][nameToIndex.get(colName)!].toFixed(3) : ""}

@@ -6,6 +6,7 @@ import { useSequenceStore } from "../../sequenceStore";
 import { rotateFlatToOrder } from "../layout";
 import SequenceLabels, { type LabelEntry } from "../../SequenceLabels";
 import { collectVisible, planLeafReorder, type DragPlan } from "../utils/drag";
+import { matchesQuery } from "../utils/search";
 
 type Props = {
   layoutRoot: LayoutNode;
@@ -23,6 +24,7 @@ export default function TreeLabels({ layoutRoot, previewLayoutRoot, yStep, label
   const rotateLeavesToOrder = useTreeStore((s) => s.rotateLeavesToOrder);
   const setPreviewFlatTree = useTreeStore((s) => s.setPreviewFlatTree);
   const searchQuery = useTreeStore((s) => s.searchQuery);
+  const searchUseRegex = useTreeStore((s) => s.searchUseRegex);
 
   // rows: stable (committed) layout — used for drag-interaction index mapping.
   // displayRows: preview layout during SVG node drag, stable otherwise.
@@ -40,7 +42,7 @@ export default function TreeLabels({ layoutRoot, previewLayoutRoot, yStep, label
     const label = isCollapsed ? `${entry.leafCount} sequences` : undefined;
     const displayName = label ?? entry.name;
     const searchMatch =
-      searchActive && displayName.toLowerCase().includes(searchQuery.toLowerCase());
+      searchActive && matchesQuery(displayName, searchQuery, searchUseRegex);
 
     const color = isSelected
       ? "oklch(var(--p))"
