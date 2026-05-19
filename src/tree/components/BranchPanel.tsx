@@ -3,6 +3,7 @@ import type { JSX } from "react";
 import { branchKey, findLayoutNode, getSubtreeNodes } from "../layout";
 import type { LayoutNode, PanelState } from "../types";
 import { useTreeStore } from "../treeStore";
+import { useDocsStore } from "../../docs/docsStore";
 import { cn } from "@/lib/utils";
 
 const itemClass =
@@ -111,6 +112,15 @@ export default function BranchPanel({
           Clear clade branch styles
         </button>
       )}
+      <button
+        className={cn(itemClass, "opacity-50")}
+        onClick={() => {
+          useDocsStore.getState().openDocs("branch-panel");
+          ref.current?.hidePopover();
+        }}
+      >
+        ? Documentation
+      </button>
       <button
         className={cn(itemClass, "opacity-50")}
         onClick={() => ref.current?.hidePopover()}

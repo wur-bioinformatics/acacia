@@ -12,11 +12,13 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
+import { HelpButton } from "../docs/HelpButton";
 
 const CELL_WIDTH = 44;
 const CELL_HEIGHT = 22;
@@ -136,6 +138,27 @@ export default function DistanceMatrix(): JSX.Element {
     }
   }
 
+  function exportCSV() {
+    const labels = orderedNames.map((n) => resolveDisplayName(n, edits));
+    const escape = (s: string) => (/[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
+    const header = ["", ...labels].map(escape).join(",");
+    const body = orderedNames.map((rowName, i) =>
+      [
+        escape(labels[i]),
+        ...orderedNames.map((colName) =>
+          matrix[nameToIndex.get(rowName)!][nameToIndex.get(colName)!].toString(),
+        ),
+      ].join(","),
+    );
+    const csv = [header, ...body].join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "distances.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="flex flex-col h-full">
       {isStale && (
@@ -178,6 +201,14 @@ export default function DistanceMatrix(): JSX.Element {
             </RadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm">File</Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-max p-1">
+            <DropdownMenuItem onSelect={exportCSV}>Export distances (CSV)</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <UndoRedoButtons />
         {avgDistance !== null && (
           <span className="ml-auto pr-1 text-xs font-medium opacity-70">
@@ -187,6 +218,7 @@ export default function DistanceMatrix(): JSX.Element {
             </span>
           </span>
         )}
+        <HelpButton anchor="distances" label="Distances documentation" />
       </div>
 
       {/* Main area */}

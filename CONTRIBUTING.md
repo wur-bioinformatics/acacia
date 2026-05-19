@@ -33,6 +33,25 @@ The app is split into three independent feature modules: `src/MSA/` (canvas-base
 - **UI** — DaisyUI semantic components first, then Tailwind utilities; use theme tokens (`bg-base-100`, `text-base-content`, etc.) instead of arbitrary colors; no icon libraries; no custom right-click menus
 - **Tests** — co-locate test files as `*.test.ts` next to the module they test; focus on pure utility functions and store logic
 
+## Documentation
+
+User-facing documentation lives in `src/docs/content/*.md` and renders inside the app as a side-sheet (opened by the `?` icon in the header). When you add or change a user-visible feature:
+
+- Update the relevant Markdown section in `src/docs/content/`.
+- If you add a new toolbar or floating panel, drop a `<HelpButton anchor="…">` into it and add a matching heading in the docs.
+- If visuals changed, regenerate screenshots:
+  ```bash
+  npm run screenshots:install   # one-time, downloads Chromium
+  npm run screenshots
+  ```
+  Commit the PNG diff under `public/docs-assets/`.
+
+The `docsContract.test.ts` Vitest test enforces three invariants:
+
+- every `![…](/docs-assets/foo.png)` reference resolves to a file in `public/docs-assets/`,
+- every `<HelpButton anchor="…">` and `openDocs("…")` anchor resolves to a heading slug in the rendered docs,
+- the three main toolbar surfaces each mount at least one `<HelpButton>`.
+
 ## Submitting changes
 
 1. Fork the repo and create a feature branch off `main`

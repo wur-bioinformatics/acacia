@@ -243,6 +243,7 @@ export default function Tree(): JSX.Element {
         <div className="flex">
           <svg
             ref={svgRef}
+            data-testid="tree-rendered"
             width={svgWidth}
             height={svgHeight}
             style={{

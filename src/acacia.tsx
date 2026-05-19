@@ -2,6 +2,7 @@ import MSA from "./MSA";
 import Tree from "./tree";
 import { DistanceMatrix } from "./NJ";
 import { type JSX, useState, useEffect } from "react";
+import { HelpCircle } from "lucide-react";
 import { AcaciaBrand } from "./AcaciaLogo";
 import { viewOptions, useViewStore, type View } from "./viewStore";
 import { useNJStore } from "./NJ/njStore";
@@ -9,6 +10,9 @@ import { useDrawStore } from "./MSA/stores/drawStore";
 import { version } from "../package.json";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { DocsSheet } from "./docs/DocsSheet";
+import { useDocsStore } from "./docs/docsStore";
 
 function ViewDispatcher({ view }: { view: View }): JSX.Element | null {
   switch (view) {
@@ -29,6 +33,7 @@ export default function Acacia(): JSX.Element {
   const { view, setView } = useViewStore();
   const { status: njStatus } = useNJStore();
   const treeReady = njStatus === "done";
+  const openDocs = useDocsStore((s) => s.openDocs);
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     return (localStorage.getItem("theme") as "light" | "dark") ?? "light";
   });
@@ -41,15 +46,40 @@ export default function Acacia(): JSX.Element {
     setDrawOptions({ darkMode: theme === "dark" });
   }, [theme, setDrawOptions]);
 
+  useEffect(() => {
+    function syncFromHash() {
+      const hash = window.location.hash;
+      if (hash === "#docs") {
+        openDocs();
+      } else if (hash.startsWith("#docs/")) {
+        openDocs(hash.slice("#docs/".length));
+      }
+    }
+    syncFromHash();
+    window.addEventListener("hashchange", syncFromHash);
+    return () => window.removeEventListener("hashchange", syncFromHash);
+  }, [openDocs]);
+
   function toggleTheme() {
     setTheme((t) => (t === "light" ? "dark" : "light"));
   }
 
   return (
+    <TooltipProvider delayDuration={300}>
     <div className="min-h-screen flex flex-col">
       <div className="flex-1 max-w-screen mx-auto w-full px-3 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8">
         <div className="relative">
           <div className="absolute top-0 right-0 flex items-center h-8 z-10">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="opacity-50 hover:opacity-100 transition-opacity"
+              onClick={() => openDocs()}
+              title="Documentation"
+              aria-label="Documentation"
+            >
+              <HelpCircle className="h-4 w-4" />
+            </Button>
             <Button
               variant="ghost"
               size="icon-sm"
@@ -118,6 +148,8 @@ export default function Acacia(): JSX.Element {
           </a>
         </nav>
       </footer>
+      <DocsSheet />
     </div>
+    </TooltipProvider>
   );
 }

@@ -20,6 +20,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { HelpButton } from "../../docs/HelpButton";
 
 type Props = {
   onExportSVG: () => void;
@@ -74,7 +75,7 @@ export default function TreeToolbar({ onExportSVG, onExportPNG, onExportNewick }
   const { openPicker, elements: importElements } = useNewickImport();
 
   return (
-    <div className="flex items-center gap-1 bg-muted rounded-t-md px-1 py-1">
+    <div className="flex items-center gap-1 bg-muted rounded-t-md px-1 py-1" data-testid="tree-toolbar">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="sm">View</Button>
@@ -303,6 +304,8 @@ export default function TreeToolbar({ onExportSVG, onExportPNG, onExportNewick }
         useRegex={searchUseRegex}
         onToggleRegex={() => setSearchUseRegex(!searchUseRegex)}
       />
+
+      <HelpButton anchor="tree" label="Tree documentation" />
 
       {importElements}
     </div>

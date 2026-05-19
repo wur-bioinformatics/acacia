@@ -6,6 +6,7 @@ import {
 } from "../layout";
 import type { LayoutNode, PanelState } from "../types";
 import { useTreeStore } from "../treeStore";
+import { useDocsStore } from "../../docs/docsStore";
 import { cn } from "@/lib/utils";
 
 const itemClass =
@@ -156,6 +157,15 @@ export default function NodePanel({
           Clear clade styles
         </button>
       )}
+      <button
+        className={cn(itemClass, "opacity-50")}
+        onClick={() => {
+          useDocsStore.getState().openDocs("node-panel");
+          ref.current?.hidePopover();
+        }}
+      >
+        ? Documentation
+      </button>
       <button
         className={cn(itemClass, "opacity-50")}
         onClick={() => ref.current?.hidePopover()}

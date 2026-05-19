@@ -6,7 +6,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { configs as tseslintConfigs } from 'typescript-eslint'
 
 export default defineConfig([
-  { ignores: ['dist'] },
+  { ignores: ['dist', 'tests/e2e/**'] },
   {
     extends: [js.configs.recommended, ...tseslintConfigs.recommended, reactHooks.configs['recommended-latest']],
     files: ['**/*.{ts,tsx}'],

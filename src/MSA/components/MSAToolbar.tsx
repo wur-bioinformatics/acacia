@@ -8,6 +8,7 @@ import { COLOR_SCHEME_GROUPS, DEFAULT_COLOR_SCHEME } from "../colourSchemes";
 import type { SequenceType } from "../types";
 import UndoRedoButtons from "../../UndoRedoButtons";
 import { Switch } from "@/components/ui/switch";
+import { HelpButton } from "../../docs/HelpButton";
 
 export default function MSAToolbar(): JSX.Element {
   const { sequenceTypeOverride, setSequenceTypeOverride, drawOptions: { colorStyle }, setDrawOptions } = useDrawStore();
@@ -26,7 +27,7 @@ export default function MSAToolbar(): JSX.Element {
   }
 
   return (
-    <div className="flex items-center gap-1 bg-muted rounded-t-md px-1 py-1">
+    <div className="flex items-center gap-1 bg-muted rounded-t-md px-1 py-1" data-testid="msa-toolbar">
       <AnalyseDropdown />
       <ViewDropdown />
 
@@ -54,6 +55,7 @@ export default function MSAToolbar(): JSX.Element {
           Protein{detectedSequenceType === "Protein" ? " (autodetected)" : ""}
         </span>
       </label>
+      <HelpButton anchor="msa" label="MSA documentation" />
     </div>
   );
 }
