@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useTreeStore } from "./treeStore";
-import { parseNewick, flattenTree } from "./layout";
+import { parseNewick, flattenTree } from "../layout";
 
 // A simple three-leaf tree used across tests: ((A,B),C)
 const makeTree = () => flattenTree(parseNewick("((A,B),C);"));

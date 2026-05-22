@@ -2,9 +2,9 @@ import { useEffect, useRef } from "react";
 import type { JSX } from "react";
 import { branchKey, findLayoutNode, getSubtreeNodes } from "../layout";
 import type { LayoutNode, PanelState } from "../types";
-import { useTreeStore } from "../treeStore";
+import { useTreeStore } from "../stores/treeStore";
 import { useDocsStore } from "../../docs/docsStore";
-import { cn } from "@/lib/utils";
+import { mergeCssClasses } from "@/lib/utils";
 
 const itemClass =
   "flex items-center gap-2 w-full rounded-sm px-2 py-1.5 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground outline-none";
@@ -82,7 +82,7 @@ export default function BranchPanel({
       <button className={itemClass} onClick={handleReroot}>
         Reroot here
       </button>
-      <label className={cn(itemClass, "justify-between")}>
+      <label className={mergeCssClasses(itemClass, "justify-between")}>
         Color branch…
         <input
           type="color"
@@ -93,7 +93,7 @@ export default function BranchPanel({
         />
       </label>
       {!panel.isLeaf && (
-        <label className={cn(itemClass, "justify-between")}>
+        <label className={mergeCssClasses(itemClass, "justify-between")}>
           Color clade branches…
           <input
             type="color"
@@ -113,7 +113,7 @@ export default function BranchPanel({
         </button>
       )}
       <button
-        className={cn(itemClass, "opacity-50")}
+        className={mergeCssClasses(itemClass, "opacity-50")}
         onClick={() => {
           useDocsStore.getState().openDocs("branch-panel");
           ref.current?.hidePopover();
@@ -122,7 +122,7 @@ export default function BranchPanel({
         ? Documentation
       </button>
       <button
-        className={cn(itemClass, "opacity-50")}
+        className={mergeCssClasses(itemClass, "opacity-50")}
         onClick={() => ref.current?.hidePopover()}
       >
         ✕ Close

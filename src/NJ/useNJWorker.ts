@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { DistanceResult } from "@holmrenser/nj";
 import { NJOptions, NJResultMessage } from "./types";
-import workerUrl from "./njWorker.ts?worker&url";
+import workerUrl from "./workers/njWorker.ts?worker&url";
 
 type NJRunResult = { newick: string; distanceMatrix: DistanceResult; avgDistance: number };
 

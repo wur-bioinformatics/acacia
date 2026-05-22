@@ -1,10 +1,11 @@
 import { useEffect, useRef, type JSX } from "react";
 import { useDrawStore } from "../stores/drawStore";
 import { useMSAStore } from "../stores/msaStore";
+import { useQualityStore } from "../stores/qualityStore";
 import { computeConservationScores } from "../utils/msaAnalysis";
 import { CELL_SIZE, CELL_FILL_RATIO } from "../constants";
 import type { TrackType, MSAColumnStat, MSAColumnAnalysis } from "../types";
-import { charToColor } from "../colourSchemes";
+import { charToColor, qualityGradient } from "../colourSchemes";
 
 export default function TrackCanvas({
   width,
@@ -28,6 +29,8 @@ export default function TrackCanvas({
   const darkMode = useDrawStore((s) => s.drawOptions.darkMode);
   const sequenceTypeOverride = useDrawStore((s) => s.sequenceTypeOverride);
   const detectedSequenceType = useMSAStore((s) => s.detectedSequenceType);
+  const trident = useQualityStore((s) => s.trident);
+  const tcsColMean = useQualityStore((s) => s.tcsColMean);
   const sequenceType = sequenceTypeOverride ?? detectedSequenceType;
   const alphabetSize = sequenceType === "Protein" ? 20 : 4;
 
@@ -51,12 +54,12 @@ export default function TrackCanvas({
     ctx.translate(offsetX, 0);
     ctx.scale(scale, 1);
 
-    if (trackType === "conservation") {
-      const scores = computeConservationScores(columnStats);
+    const drawQualityBars = (scores: number[] | null) => {
+      if (!scores) return;
       for (let col = startCol; col < endCol; col++) {
-        const score = scores[col] ?? 0;
+        const score = Math.max(0, Math.min(1, scores[col] ?? 0));
         const barH = score * height;
-        ctx.fillStyle = `hsl(${220 - score * 180}, 70%, 50%)`;
+        ctx.fillStyle = qualityGradient(score, darkMode);
         ctx.fillRect(
           col * CELL_SIZE,
           height - barH,
@@ -64,6 +67,14 @@ export default function TrackCanvas({
           barH,
         );
       }
+    };
+
+    if (trackType === "conservation") {
+      drawQualityBars(computeConservationScores(columnStats));
+    } else if (trackType === "trident") {
+      drawQualityBars(trident);
+    } else if (trackType === "tcs") {
+      drawQualityBars(tcsColMean);
     } else if (trackType === "logo") {
       const cellW = CELL_SIZE * CELL_FILL_RATIO;
       const REF = 200;
@@ -146,6 +157,8 @@ export default function TrackCanvas({
     analysis,
     darkMode,
     alphabetSize,
+    trident,
+    tcsColMean,
   ]);
 
   return (

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { MSAData } from "../types";
 
-import workerUrl from "../canvasWorker?worker&url";
-import type { InitMessage, SetMSAMessage, RedrawMessage, DragPreviewMessage } from "../types";
+import workerUrl from "../workers/canvasWorker?worker&url";
+import type { InitMessage, SetMSAMessage, RedrawMessage, DragPreviewMessage, SetQualityMessage } from "../types";
 import { useDrawStore } from "../stores/drawStore";
+import { useQualityStore } from "../stores/qualityStore";
 
 export default function useMainCanvasWorker({
   canvasRef,
@@ -24,7 +25,7 @@ export default function useMainCanvasWorker({
   const pendingMessage = useRef<RedrawMessage | null>(null);
   const [isRendering, setIsRendering] = useState(false);
 
-  // Refs so the Zustand subscription always sends current dimensions/mode
+  // Refs so the Zustand subscription always sends current dimensions/mode/data
   // without needing to re-subscribe when they change.
   const isMinimap_ref = useRef(isMinimap);
   isMinimap_ref.current = isMinimap;
@@ -32,6 +33,8 @@ export default function useMainCanvasWorker({
   canvasWidth_ref.current = canvasWidth;
   const canvasHeight_ref = useRef(canvasHeight);
   canvasHeight_ref.current = canvasHeight;
+  const msaData_ref = useRef(msaData);
+  msaData_ref.current = msaData;
 
   useEffect(() => {
     // Initialize worker and transfer OffscreenCanvas
@@ -136,5 +139,46 @@ export default function useMainCanvasWorker({
     return unsubscribe;
   }, []);
 
+  useEffect(() => {
+    // Forward quality scores to the canvas worker so TRIDENT/TCS color styles can tint cells.
+    // TCS is per-residue and indexed by identifier — permute it against the current display
+    // order via msaData_ref so the subscription only attaches once.
+    const push = () => {
+      if (!workerRef.current) return;
+      const { trident, tcs, tcsIdentifiers } = useQualityStore.getState();
+      const permutedTcs = permuteTcsToDisplay(tcs, tcsIdentifiers, msaData_ref.current);
+      const message: SetQualityMessage = { type: "setQuality", trident, tcs: permutedTcs };
+      workerRef.current.postMessage(message);
+    };
+    push();
+    return useQualityStore.subscribe(push);
+  }, []);
+
+  useEffect(() => {
+    // Re-push permuted quality scores when display order/data changes (reorder/edit).
+    if (!workerRef.current) return;
+    const { trident, tcs, tcsIdentifiers } = useQualityStore.getState();
+    if (trident === null && tcs === null) return;
+    const message: SetQualityMessage = {
+      type: "setQuality",
+      trident,
+      tcs: permuteTcsToDisplay(tcs, tcsIdentifiers, msaData),
+    };
+    workerRef.current.postMessage(message);
+  }, [msaData]);
+
   return { isRendering };
+}
+
+function permuteTcsToDisplay(
+  tcs: number[][] | null,
+  identifiers: string[] | null,
+  msaData: MSAData,
+): number[][] | null {
+  if (!tcs || !identifiers) return null;
+  const idToIdx = new Map(identifiers.map((id, i) => [id, i]));
+  return msaData.map((row) => {
+    const idx = idToIdx.get(row.identifier);
+    return idx !== undefined ? tcs[idx] : [];
+  });
 }

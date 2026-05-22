@@ -1,6 +1,6 @@
 import type { JSX } from "react";
 import { useRef, useState } from "react";
-import { useNJStore } from "./njStore";
+import { useNJStore } from "./stores/njStore";
 import { useSequenceStore } from "../sequenceStore";
 import { useEditStore } from "../editStore";
 import { resolveDisplayName } from "../editUtils";

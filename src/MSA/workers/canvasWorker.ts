@@ -5,14 +5,14 @@ import {
   DrawOptions,
   type MSAColumnStat,
   type MSAColumnAnalysis,
-} from "./types";
+} from "../types";
 import {
   computeColumnStats,
   computeConsensus,
   analyseMSAColumns,
-} from "./utils/msaAnalysis";
-import { charToColor } from "./colourSchemes";
-import { CELL_SIZE, CELL_FILL_RATIO } from "./constants";
+} from "../utils/msaAnalysis";
+import { charToColor } from "../colourSchemes";
+import { CELL_SIZE, CELL_FILL_RATIO } from "../constants";
 
 class CanvasDrawer {
   private canvas: OffscreenCanvas | null = null;
@@ -24,6 +24,8 @@ class CanvasDrawer {
     conservedSites: [],
     variableSites: [],
   };
+  private trident: number[] | null = null;
+  private tcs: number[][] | null = null;
   private options: DrawOptions = {
     cellSize: CELL_SIZE,
     showLetters: true,
@@ -52,6 +54,11 @@ class CanvasDrawer {
     this.msaData = msaData;
     this.columnStats = computeColumnStats(msaData);
     this.analysis = analyseMSAColumns(msaData);
+  }
+
+  setQuality(trident: number[] | null, tcs: number[][] | null) {
+    this.trident = trident;
+    this.tcs = tcs;
   }
 
   updateDrawSettings(options: DrawOptions, isMinimap: boolean) {
@@ -167,7 +174,7 @@ class CanvasDrawer {
       ctx.scale(scale, 1);
     }
 
-    // Consensus row (row 0)
+    // Consensus row (row 0). row = -1 signals "no per-residue context" to charToColor.
     if (showConsensus) {
       for (let col = startCol; col < endCol; col++) {
         const char = consensus[col] ?? "-";
@@ -177,6 +184,9 @@ class CanvasDrawer {
           this.options.colorStyle,
           this.analysis,
           this.options.darkMode,
+          this.trident,
+          this.tcs,
+          -1,
         );
         ctx.fillRect(
           col * cellSize,
@@ -245,6 +255,9 @@ class CanvasDrawer {
             this.options.colorStyle,
             this.analysis,
             this.options.darkMode,
+            this.trident,
+            this.tcs,
+            row,
           );
         }
         ctx.fillRect(
@@ -299,6 +312,10 @@ self.onmessage = (e: MessageEvent<CanvasMessage>) => {
     self.postMessage({ type: "done" });
   } else if (type === "dragPreview") {
     drawer.setDragPreview(e.data.dragIndex, e.data.hoverIndex);
+    drawer.redraw();
+    self.postMessage({ type: "done" });
+  } else if (type === "setQuality") {
+    drawer.setQuality(e.data.trident, e.data.tcs);
     drawer.redraw();
     self.postMessage({ type: "done" });
   }

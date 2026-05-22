@@ -1,6 +1,6 @@
 import type { JSX } from "react";
 import type { LayoutMode } from "../types";
-import { useTreeStore } from "../treeStore";
+import { useTreeStore } from "../stores/treeStore";
 import UndoRedoButtons from "../../UndoRedoButtons";
 import { useNewickImport } from "../hooks/useNewickImport";
 import SearchInput from "@/components/SearchInput";

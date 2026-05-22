@@ -1,5 +1,5 @@
 import { nj, type NJEvent } from "@holmrenser/nj";
-import { NJMessage } from "./types";
+import { NJMessage } from "../types";
 
 self.onmessage = (event: MessageEvent<NJMessage>) => {
   const {

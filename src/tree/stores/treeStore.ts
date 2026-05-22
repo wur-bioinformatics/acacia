@@ -1,8 +1,8 @@
 import { create } from "zustand";
-import type { BranchStyle, FlatTree, LayoutMode, NodeId, NodeStyle } from "./types";
-import { collapsePolytomiesByBootstrap, ladderize, rerootFlat, rotateFlat, rotateFlatToOrder } from "./layout";
-import { midpointRoot } from "./utils/midpoint";
-import { useSequenceStore } from "../sequenceStore";
+import type { BranchStyle, FlatTree, LayoutMode, NodeId, NodeStyle } from "../types";
+import { collapsePolytomiesByBootstrap, ladderize, rerootFlat, rotateFlat, rotateFlatToOrder } from "../layout";
+import { midpointRoot } from "../utils/midpoint";
+import { useSequenceStore } from "../../sequenceStore";
 
 // Returns the set of valid (still-internal, still-existing) collapsed IDs after a tree mutation.
 // Required because reroot/midpoint may turn a previously-internal node into a leaf — keeping

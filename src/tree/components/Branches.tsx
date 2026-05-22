@@ -1,7 +1,7 @@
 import type { JSX } from "react";
 import { branchKey } from "../layout";
 import type { BranchesProps, RadialGeomProps } from "../types";
-import { useTreeStore } from "../treeStore";
+import { useTreeStore } from "../stores/treeStore";
 import { matchesQuery } from "../utils/search";
 import { RADIAL_LABEL_GAP } from "../constants";
 import NodeCircle from "./NodeCircle";

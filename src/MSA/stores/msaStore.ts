@@ -4,6 +4,7 @@ import { useSequenceStore } from "../../sequenceStore";
 import { detectSequenceType, DEFAULT_COLOR_SCHEME } from "../colourSchemes";
 import { useDrawStore } from "./drawStore";
 import { useEditStore } from "../../editStore";
+import { useQualityStore } from "./qualityStore";
 
 type MSAState = {
   msaData: MSAData;
@@ -19,6 +20,7 @@ export const useMSAStore = create<MSAState>((set) => ({
     set({ msaData, detectedSequenceType: detected });
     useSequenceStore.getState().setOrder(msaData.map((s) => s.identifier));
     useEditStore.getState().setOriginalMSA(msaData);
+    useQualityStore.getState().reset();
     const { sequenceTypeOverride, setDrawOptions } = useDrawStore.getState();
     if (sequenceTypeOverride === null) {
       setDrawOptions({ colorStyle: DEFAULT_COLOR_SCHEME[detected] });

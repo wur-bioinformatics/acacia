@@ -1,7 +1,7 @@
 import type { JSX } from "react";
-import { useNJStore } from "../../NJ/njStore";
-import type { NJParams } from "../../NJ/njStore";
-import { useTreeStore } from "../treeStore";
+import { useNJStore } from "../../NJ/stores/njStore";
+import type { NJParams } from "../../NJ/stores/njStore";
+import { useTreeStore } from "../stores/treeStore";
 
 function njParamLabel(params: NJParams): string {
   const model =

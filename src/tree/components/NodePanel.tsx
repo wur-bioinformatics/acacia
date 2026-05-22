@@ -1,13 +1,10 @@
 import { useEffect, useRef } from "react";
 import type { JSX } from "react";
-import {
-  findLayoutNode,
-  getSubtreeNodes,
-} from "../layout";
+import { findLayoutNode, getSubtreeNodes } from "../layout";
 import type { LayoutNode, PanelState } from "../types";
-import { useTreeStore } from "../treeStore";
+import { useTreeStore } from "../stores/treeStore";
 import { useDocsStore } from "../../docs/docsStore";
-import { cn } from "@/lib/utils";
+import { mergeCssClasses } from "@/lib/utils";
 
 const itemClass =
   "flex items-center gap-2 w-full rounded-sm px-2 py-1.5 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground outline-none";
@@ -100,7 +97,7 @@ export default function NodePanel({
           <button className={itemClass} onClick={handleRotate}>
             Rotate children
           </button>
-          <label className={cn(itemClass, "justify-between")}>
+          <label className={mergeCssClasses(itemClass, "justify-between")}>
             Color clade…
             <input
               type="color"
@@ -123,7 +120,7 @@ export default function NodePanel({
           {isCollapsed ? "Expand clade" : "Collapse clade"}
         </button>
       )}
-      <label className={cn(itemClass, "justify-between")}>
+      <label className={mergeCssClasses(itemClass, "justify-between")}>
         Color {panel.isLeaf ? "leaf" : "node"}…
         <input
           type="color"
@@ -158,7 +155,7 @@ export default function NodePanel({
         </button>
       )}
       <button
-        className={cn(itemClass, "opacity-50")}
+        className={mergeCssClasses(itemClass, "opacity-50")}
         onClick={() => {
           useDocsStore.getState().openDocs("node-panel");
           ref.current?.hidePopover();
@@ -167,7 +164,7 @@ export default function NodePanel({
         ? Documentation
       </button>
       <button
-        className={cn(itemClass, "opacity-50")}
+        className={mergeCssClasses(itemClass, "opacity-50")}
         onClick={() => ref.current?.hidePopover()}
       >
         ✕ Close

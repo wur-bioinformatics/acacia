@@ -1,5 +1,5 @@
 import { type JSX } from "react";
-import { useTreeStore } from "../treeStore";
+import { useTreeStore } from "../stores/treeStore";
 import type { LayoutNode } from "../types";
 import { MARGIN } from "../constants";
 import { useSequenceStore } from "../../sequenceStore";

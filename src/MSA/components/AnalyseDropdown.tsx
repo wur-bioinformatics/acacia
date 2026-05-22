@@ -6,12 +6,14 @@ import type { NJConfig } from "@holmrenser/nj";
 type SubstitutionModel = NJConfig["substitution_model"];
 import { useMSAStore } from "../stores/msaStore";
 import { useDrawStore } from "../stores/drawStore";
-import { useNJStore } from "../../NJ/njStore";
+import { useNJStore } from "../../NJ/stores/njStore";
 import { useNJWorker } from "../../NJ";
 import { useViewStore } from "../../viewStore";
 import type { SequenceType } from "../types";
 import { useEditStore } from "../../editStore";
 import { applyEdits } from "../../editUtils";
+import { useQualityStore } from "../stores/qualityStore";
+import useQualityWorker from "../hooks/useQualityWorker";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +40,7 @@ const SUBSTITUTION_MODELS: SubstitutionModelOption[] = [
 
 export default function AnalyseDropdown(): JSX.Element {
   const { runNJ } = useNJWorker();
+  const { runQuality } = useQualityWorker();
   const { msaData } = useMSAStore();
   const { sequenceTypeOverride } = useDrawStore();
   const { detectedSequenceType } = useMSAStore();
@@ -48,6 +51,13 @@ export default function AnalyseDropdown(): JSX.Element {
     setError,
     setProgress,
   } = useNJStore();
+  const {
+    status: qualityStatus,
+    setRunning: setQualityRunning,
+    setResult: setQualityResult,
+    setError: setQualityError,
+    setProgress: setQualityProgress,
+  } = useQualityStore();
   const { setView } = useViewStore();
 
   const effectiveType = sequenceTypeOverride ?? detectedSequenceType;
@@ -63,13 +73,16 @@ export default function AnalyseDropdown(): JSX.Element {
     }
   }, [effectiveType, substitutionModel]);
 
+  function effectiveMSA() {
+    const { originalMSA, edits } = useEditStore.getState();
+    return originalMSA.length > 0 ? applyEdits(originalMSA, edits) : msaData;
+  }
+
   function handleRunNJ() {
     setRunning();
     setOpen(false);
-    const { originalMSA, edits } = useEditStore.getState();
-    const effectiveMSA = originalMSA.length > 0 ? applyEdits(originalMSA, edits) : msaData;
     const njConfig: NJConfig = {
-      msa: effectiveMSA,
+      msa: effectiveMSA(),
       n_bootstrap_samples: nBootstrapSamples,
       substitution_model: substitutionModel,
       alphabet: null,
@@ -89,6 +102,22 @@ export default function AnalyseDropdown(): JSX.Element {
         setView("Tree");
       })
       .catch((err: Error) => setError(err.message));
+  }
+
+  function handleRunQuality() {
+    setQualityRunning();
+    setOpen(false);
+    const msa = effectiveMSA();
+    const identifiers = msa.map((s) => s.identifier);
+    runQuality({
+      msaData: msa,
+      sequenceType: effectiveType,
+      onProgress: (stage, current, total) => setQualityProgress(stage, current, total),
+    })
+      .then(({ trident, tcs, tcsColMean }) =>
+        setQualityResult(trident, tcs, tcsColMean, identifiers),
+      )
+      .catch((err: Error) => setQualityError(err.message));
   }
 
   return (
@@ -148,6 +177,28 @@ export default function AnalyseDropdown(): JSX.Element {
               </>
             ) : (
               "Run"
+            )}
+          </Button>
+        </div>
+
+        <DropdownMenuLabel className="pt-3">MSA quality</DropdownMenuLabel>
+        <p className="px-2 text-xs text-muted-foreground max-w-56">
+          TRIDENT + TCS per-column scores. Heavy for large alignments.
+        </p>
+        <div className="px-2 pt-1">
+          <Button
+            size="xs"
+            className="w-full"
+            onClick={handleRunQuality}
+            disabled={qualityStatus === "running"}
+          >
+            {qualityStatus === "running" ? (
+              <>
+                <Loader2 className="size-3 animate-spin" />
+                Computing…
+              </>
+            ) : (
+              "Compute"
             )}
           </Button>
         </div>

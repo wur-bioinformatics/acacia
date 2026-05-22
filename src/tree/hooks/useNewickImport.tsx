@@ -1,6 +1,6 @@
 import { useRef, useState, type JSX } from "react";
 import { flattenTree, parseNewick } from "../layout";
-import { useTreeStore } from "../treeStore";
+import { useTreeStore } from "../stores/treeStore";
 import { useSequenceStore } from "../../sequenceStore";
 import type { FlatTree } from "../types";
 import { Button } from "@/components/ui/button";

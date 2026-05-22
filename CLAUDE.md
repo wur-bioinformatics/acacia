@@ -23,13 +23,13 @@ Zustand stores only — no Context API for state, no Redux.
 
 - `viewStore.ts` — which view is active (MSA / Tree / Combined)
 - `sequenceStore.ts` — **cross-module**: the single source of truth for sequence display order and shared selection. Both the MSA renderer and the tree use this. Tree drag/reorder writes here; MSA reads here.
-- `editStore.ts` — **cross-module**: undo/redo stack for MSA edits (rename, remove row, remove column). Edits are stored as a log against the original `MSAData`; `applyEdits()` in `editUtils.ts` replays them. Cmd+Z / Cmd+Shift+Z is wired in `tree/index.tsx` and `MSA/index.tsx`.
+- `editStore.ts` — **cross-module**: undo/redo stack for MSA edits (rename, remove row, remove column). Edits are stored as a log against the original `MSAData`; `applyEdits()` in `editUtils.ts` replays them. Cmd+Z / Cmd+Shift+Z is wired via `useEditKeyboard` in MSA and inline in `tree/index.tsx`.
 - `MSA/stores/msaStore.ts` — parsed sequence data
 - `MSA/stores/drawStore.ts` — pan/zoom/color draw options
-- `NJ/njStore.ts` — NJ algorithm computation state
-- `tree/treeStore.ts` — tree display state (layout mode, pan/zoom, reroot, collapse, node styles, drag mode)
+- `NJ/stores/njStore.ts` — NJ algorithm computation state
+- `tree/stores/treeStore.ts` — tree display state (layout mode, pan/zoom, reroot, collapse, node styles, drag mode)
 
-Context API is used **only for mutable DOM refs** that need to be shared across sibling hooks (e.g. `CanvasContext` shares canvas element refs). Never for state.
+Context API is used **only for mutable DOM refs** that need to be shared across sibling hooks (see `src/MSA/context/CanvasContext.tsx` for canvas element refs). Never for state.
 
 ### Tree type pipeline
 
@@ -45,10 +45,11 @@ Pipeline: `parseNewick → flattenTree → (treeStore.flatTree) → buildLayout 
 
 CPU-heavy work runs off the main thread.
 
-- `MSA/canvasWorker.ts` — MSA canvas rendering (OffscreenCanvas)
-- `NJ/njWorker.ts` — Neighbor-Joining algorithm via `@holmrenser/nj` (Rust/WASM, [`nj.rs`](https://github.com/holmrenser/nj))
+- `MSA/workers/canvasWorker.ts` — MSA canvas rendering (OffscreenCanvas)
+- `MSA/workers/qualityWorker.ts` — TRIDENT + TCS column-quality scores
+- `NJ/workers/njWorker.ts` — Neighbor-Joining algorithm via `@holmrenser/nj` (Rust/WASM, [`nj.rs`](https://github.com/holmrenser/nj))
 
-Worker message protocols are defined as discriminated union types in the module's `types.ts`. The worker lifecycle is managed by a dedicated hook (`useMainCanvasWorker`, `useNJWorker`).
+Worker message protocols are defined as discriminated union types in the module's `types.ts`. The worker lifecycle is managed by a dedicated hook (`useMainCanvasWorker`, `useQualityWorker`, `useNJWorker`).
 
 ### Rendering
 
@@ -65,15 +66,15 @@ Typical module structure:
 
 ```
 ModuleName/
-  types.ts          — all TypeScript types + worker message types
-  *Store.ts         — Zustand store(s)
-  index.ts(x)       — public API: re-exports or the root component
-  constants.ts      — module-level constants
-  components/       — React components (PascalCase.tsx)
-  hooks/            — custom hooks (useCamelCase.ts)
-  utils/            — pure functions + co-located *.test.ts
-  *Worker.ts        — Web Worker (when CPU work is needed)
-  context/          — React Context (DOM refs only, not state)
+  types.ts            — all TypeScript types + worker message types
+  stores/*Store.ts    — Zustand store(s)
+  index.ts(x)         — public API: re-exports or the root component
+  constants.ts        — module-level constants
+  components/         — React components (PascalCase.tsx)
+  hooks/              — custom hooks (useCamelCase.ts)
+  utils/              — pure functions + co-located *.test.ts
+  workers/*Worker.ts  — Web Workers (when CPU work is needed)
+  context/            — React Context (DOM refs only, not state)
 ```
 
 ### Tests
@@ -85,15 +86,10 @@ Co-located `*.test.ts` files (e.g. `MSA/utils/fasta.test.ts`, `tree/layout.test.
 ## Key conventions
 
 - **Strict TypeScript** (`noUnusedLocals`, `noUnusedParameters`)
-- **Tailwind + shadcn/ui** for UI components; avoid raw inline styles
-- **Custom logic in hooks** — keep components thin; complex event handling and side effects belong in hooks
-- **React hooks lint rules** enforced; respect exhaustive-deps
-- **Toolbar pattern**: toolbar components (`MSAToolbar`, `TreeToolbar`) read from Zustand directly — no prop drilling for toolbar state
-- **No custom right-click menus** — overriding the browser context menu is an antipattern. Use click-triggered floating panels (popovers) instead: click element → `position: fixed` panel near cursor, closed by Escape or outside click
-- **Data structures over serialization** — perform operations on in-memory data structures, not serialized text. E.g. `rerootTree(root: TreeNode, id: string): TreeNode` rather than parsing/serializing Newick mid-interaction
-- **Pan/zoom hook pattern**: attach to the target element via `useEffect`, read current state from `store.getState()` in event handlers (not reactive subscriptions) to avoid stale closures, write back via store actions
-- **Short and readable** — prefer concise expressions over verbose ones. Keep functions focused and small. Avoid intermediate variables that add no clarity. No over-abstraction: don't create helpers for one-off use, don't design for hypothetical reuse.
-- **Performance** — use narrow Zustand selectors (`useStore((s) => s.x)` not `useStore()`) so components only re-render on the slice they need. Use `useMemo` for expensive derived values (layout computation, filtered sequences); `useCallback` for handlers that are passed down or captured in refs. In event handlers, read current state from `store.getState()` — never from reactive subscriptions — to avoid stale closures.
-- **Clean UI aesthetics** — shadcn/ui primitives first (`<Button>`, `<DropdownMenu>`, `<Tabs>`, `<Slider>`, `<Switch>`, `<RadioGroup>`, `<Alert>`, `<Dialog>`, etc.) from `@/components/ui`, composed with Tailwind utilities. Use shadcn theme tokens (`bg-background`, `bg-muted`, `bg-accent`, `text-foreground`, `text-muted-foreground`, `border`, `text-destructive`) instead of arbitrary colors. Use `opacity-50 hover:opacity-100 transition-opacity` for muted/hover states. Inline SVG for module-specific icons; `lucide-react` for generic UI icons (spinner, chevron). Consistent spatial rhythm: `gap-2`, `px-1`, `rounded-md`. Theme switching toggles `document.documentElement.classList` on/off `dark` — no `data-theme` attribute.
-- **Custom shadcn variants** — `xs` size lives on `Button`, `Input`, and is the default for toolbars. `Alert` has a `warning` variant in addition to `default` / `destructive`. When adding new variants, extend the cva config in `src/components/ui/<component>.tsx` rather than overriding via `className` per call site.
-- **Floating panels near cursor** (`BranchPanel`, `NodePanel`) — these are click-triggered panels positioned at click coords, not anchored to a button. Keep the manual `popover="auto"` shell with `position: fixed` and style items with `bg-popover text-popover-foreground rounded-md border shadow-md`. Do NOT migrate these to shadcn `<Popover>` (it needs a real DOM trigger).
+- **Tailwind + shadcn/ui** — primitives from `@/components/ui` (`<Button>`, `<DropdownMenu>`, `<Tabs>`, `<Slider>`, `<Switch>`, `<RadioGroup>`, `<Alert>`, `<Dialog>`, etc.). Prefer theme tokens (`bg-background`, `text-muted-foreground`, `border`, `text-destructive`) over arbitrary colors. Inline SVG for module icons; `lucide-react` for generic ones. Theme switching toggles `document.documentElement.classList` on/off `dark` — no `data-theme` attribute.
+- **Custom shadcn variants** — `xs` size on `Button` and `Input`; `Alert` has a `warning` variant in addition to `default` / `destructive`. Extend the cva config in `src/components/ui/<component>.tsx` rather than overriding via `className`.
+- **Toolbar pattern**: toolbar components (`MSAToolbar`, `TreeToolbar`) read from Zustand directly — no prop drilling. Use narrow selectors (`useStore((s) => s.x)`) so components re-render only on the slice they need.
+- **No custom right-click menus** — overriding the browser context menu is an antipattern. Use click-triggered floating panels (popovers) instead: click element → `position: fixed` panel near cursor, closed by Escape or outside click.
+- **Floating panels near cursor** (`BranchPanel`, `NodePanel`) — click-triggered, positioned at click coords (not anchored to a button). Keep the manual `popover="auto"` shell with `position: fixed` and style items with `bg-popover text-popover-foreground rounded-md border shadow-md`. Do NOT migrate these to shadcn `<Popover>` (it needs a real DOM trigger).
+- **Data structures over serialization** — perform operations on in-memory data structures, not serialized text. E.g. `rerootTree(root: TreeNode, id: string): TreeNode` rather than parsing/serializing Newick mid-interaction.
+- **Pan/zoom hook pattern**: attach to the target element via `useEffect`; read current state from `store.getState()` in event handlers (not reactive subscriptions) to avoid stale closures; write back via store actions.

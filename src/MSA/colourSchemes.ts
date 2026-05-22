@@ -127,7 +127,55 @@ export const COLOR_SCHEME_GROUPS: {
     schemes: ["Parsimony Informative", "Conserved", "Variable"],
     type: null,
   },
+  {
+    label: "Quality",
+    schemes: ["TRIDENT", "TCS"],
+    type: null,
+  },
 ];
+
+const COLUMN_UNIFORM_STYLES: ReadonlySet<ColorStyle> = new Set([
+  "Parsimony Informative",
+  "Variable",
+  "Conserved",
+  "TRIDENT",
+]);
+
+export function isColumnUniformStyle(style: ColorStyle): boolean {
+  return COLUMN_UNIFORM_STYLES.has(style);
+}
+
+/** Score → CSS color. Shares hue interpolation with the conservation track. */
+export function qualityGradient(score: number, darkMode: boolean): string {
+  const clamped = Math.max(0, Math.min(1, score));
+  const hue = 220 - clamped * 180;
+  const sat = darkMode ? 55 : 70;
+  const light = darkMode ? 38 : 50;
+  return `hsl(${hue}, ${sat}%, ${light}%)`;
+}
+
+/** Color for a column under a column-uniform color style. Falls back to gap when scores are absent. */
+export function columnColor(
+  col: number,
+  style: ColorStyle,
+  analysis: MSAColumnAnalysis,
+  trident: number[] | null,
+  darkMode: boolean,
+): string {
+  const gap = darkMode ? GAP.dark : GAP.light;
+  switch (style) {
+    case "Parsimony Informative":
+      return analysis.parsimonyInformativeSites.indexOf(col) > -1 ? HIGHLIGHT_COLOR : gap;
+    case "Variable":
+      return analysis.variableSites.indexOf(col) > -1 ? HIGHLIGHT_COLOR : gap;
+    case "Conserved":
+      return analysis.conservedSites.indexOf(col) > -1 ? HIGHLIGHT_COLOR : gap;
+    case "TRIDENT":
+      return trident ? qualityGradient(trident[col] ?? 0, darkMode) : gap;
+    default:
+      return gap;
+  }
+}
 
 export const DEFAULT_COLOR_SCHEME: Record<SequenceType, ColorStyle> = {
   DNA: "DNA",
@@ -153,10 +201,25 @@ export function charToColor(
   style: ColorStyle,
   analysis: MSAColumnAnalysis,
   darkMode = false,
+  trident: number[] | null = null,
+  tcs: number[][] | null = null,
+  row: number = -1,
 ): string {
+  const gap = darkMode ? GAP.dark : GAP.light;
+
+  // TCS is per-residue: tcs[row][col]. Gap cells and consensus row fall back to gap color.
+  if (style === "TCS") {
+    if (char === "-" || row < 0 || !tcs) return gap;
+    const rowScores = tcs[row];
+    if (!rowScores) return gap;
+    return qualityGradient(rowScores[col] ?? 0, darkMode);
+  }
+
+  if (isColumnUniformStyle(style)) {
+    return columnColor(col, style, analysis, trident, darkMode);
+  }
   const upper = char.toUpperCase();
   const mode = darkMode ? "dark" : "light";
-  const gap = darkMode ? GAP.dark : GAP.light;
   const unknown = darkMode ? UNKNOWN.dark : UNKNOWN.light;
   switch (style) {
     case "DNA":
@@ -169,18 +232,6 @@ export function charToColor(
       return aaZappoScheme[mode].get(upper) ?? gap;
     case "AA Taylor":
       return aaTaylorScheme[mode].get(upper) ?? gap;
-    case "Parsimony Informative":
-      return analysis.parsimonyInformativeSites.indexOf(col) > -1
-        ? HIGHLIGHT_COLOR
-        : gap;
-    case "Variable":
-      return analysis.variableSites.indexOf(col) > -1
-        ? HIGHLIGHT_COLOR
-        : gap;
-    case "Conserved":
-      return analysis.conservedSites.indexOf(col) > -1
-        ? HIGHLIGHT_COLOR
-        : gap;
     default:
       return unknown;
   }

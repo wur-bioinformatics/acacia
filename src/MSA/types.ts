@@ -1,5 +1,5 @@
 export type SequenceType = "DNA" | "Protein";
-export type TrackType = "conservation" | "logo";
+export type TrackType = "conservation" | "logo" | "trident" | "tcs";
 
 export const COLORSTYLES = [
   "DNA",
@@ -10,6 +10,8 @@ export const COLORSTYLES = [
   "Parsimony Informative",
   "Conserved",
   "Variable",
+  "TRIDENT",
+  "TCS",
 ] as const;
 export type ColorStyle = (typeof COLORSTYLES)[number];
 
@@ -63,5 +65,27 @@ export type DragPreviewMessage = {
   dragIndex: number | null;
   hoverIndex: number | null;
 };
+export type SetQualityMessage = {
+  type: "setQuality";
+  trident: number[] | null;
+  tcs: number[][] | null;
+};
 export type DoneMessage = { type: "done" };
-export type CanvasMessage = InitMessage | RedrawMessage | SetMSAMessage | DragPreviewMessage | DoneMessage;
+export type CanvasMessage =
+  | InitMessage
+  | RedrawMessage
+  | SetMSAMessage
+  | DragPreviewMessage
+  | SetQualityMessage
+  | DoneMessage;
+
+export type QualityStage = "library" | "scoring";
+export type QualityRunMessage = {
+  type: "runQuality";
+  msaData: MSAData;
+  sequenceType: SequenceType;
+};
+export type QualityResponseMessage =
+  | { type: "qualityResult"; trident: number[]; tcs: number[][]; tcsColMean: number[] }
+  | { type: "qualityError"; error: string }
+  | { type: "qualityProgress"; stage: QualityStage; current: number; total: number };

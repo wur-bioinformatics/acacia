@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { MSAData } from "./MSA/types";
-import { useNJStore } from "./NJ/njStore";
+import { useNJStore } from "./NJ/stores/njStore";
+import { useQualityStore } from "./MSA/stores/qualityStore";
 
 export type RenameEdit = { type: "rename"; originalId: string; newName: string };
 export type RemoveRowEdit = { type: "remove_row"; originalId: string };
@@ -26,6 +27,7 @@ export const useEditStore = create<EditState>((set) => ({
   addEdit: (edit) => {
     if (edit.type === "remove_row" || edit.type === "remove_column") {
       useNJStore.getState().markStale();
+      useQualityStore.getState().markStale();
     }
     set((s) => ({ edits: [...s.edits, edit], future: [] }));
   },

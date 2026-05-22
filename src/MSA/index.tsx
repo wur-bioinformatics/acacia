@@ -6,7 +6,7 @@ import { useSequenceStore } from "../sequenceStore";
 import "./styles.css";
 
 import { parseFasta, readTextFile } from "./utils/fasta";
-import { CELL_SIZE, MINIMAP_HEIGHT } from "./constants";
+import { CELL_SIZE, MINIMAP_HEIGHT, TRACK_LABELS } from "./constants";
 import { computeColumnStats } from "./utils/msaAnalysis";
 
 import type { MSAData } from "./types";
@@ -18,7 +18,7 @@ import useMainCanvasWorker from "./hooks/useMainCanvasWorker";
 import useOverlay from "./hooks/useOverlay";
 import useLabelDividerResize from "./hooks/useLabelDividerResize";
 import useRowDividerResize from "./hooks/useRowDividerResize";
-import { useNJStore } from "../NJ/njStore";
+import { useNJStore } from "../NJ/stores/njStore";
 import { useContainerWidth } from "../hooks/useContainerWidth";
 import { analyseMSAColumns } from "./utils/msaAnalysis";
 import { useEditStore } from "../editStore";
@@ -29,6 +29,7 @@ import { exampleMsa } from "./example_data";
 import MSAToolbar from "./components/MSAToolbar";
 import MSALabels from "./components/MSALabels";
 import TrackCanvas from "./components/TrackCanvas";
+import { useQualityStore } from "./stores/qualityStore";
 import { CanvasProvider } from "./context/CanvasContext";
 import { Button } from "@/components/ui/button";
 
@@ -171,6 +172,19 @@ function MSAInner(): JSX.Element {
   const { originalMSA, edits } = useEditStore(useShallow((s) => ({ originalMSA: s.originalMSA, edits: s.edits })));
   const { order } = useSequenceStore();
   const { status: njStatus, progress } = useNJStore();
+  const {
+    status: qualityStatus,
+    progress: qualityProgress,
+    error: qualityError,
+    isStale: qualityStale,
+  } = useQualityStore(
+    useShallow((s) => ({
+      status: s.status,
+      progress: s.progress,
+      error: s.error,
+      isStale: s.isStale,
+    })),
+  );
   const {
     drawOptions: { showLabels, showConsensus, showMinimap, offsetY, colorStyle },
     activeTrack,
@@ -329,7 +343,7 @@ function MSAInner(): JSX.Element {
                       </svg>
                     </button>
                     <span style={{ fontSize: 10, fontFamily: '"Azeret Mono", ui-monospace, monospace', opacity: 0.3, letterSpacing: "0.02em" }}>
-                      {activeTrack === "conservation" ? "Conservation" : "Logo"}
+                      {TRACK_LABELS[activeTrack]}
                     </span>
                   </>
                 )}
@@ -412,6 +426,21 @@ function MSAInner(): JSX.Element {
             {njStatus === "error" && (
               <span className="ml-auto font-sans text-destructive opacity-100">
                 tree build failed
+              </span>
+            )}
+            {qualityStatus === "running" && qualityProgress && (
+              <span className="ml-auto">
+                computing quality · {qualityProgress.stage} {qualityProgress.current} / {qualityProgress.total}
+              </span>
+            )}
+            {qualityStatus === "done" && qualityStale && (
+              <span className="ml-auto font-sans opacity-100">
+                quality stale — recompute
+              </span>
+            )}
+            {qualityStatus === "error" && (
+              <span className="ml-auto font-sans text-destructive opacity-100">
+                quality failed{qualityError ? ` · ${qualityError}` : ""}
               </span>
             )}
           </div>

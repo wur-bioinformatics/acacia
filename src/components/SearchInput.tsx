@@ -1,11 +1,15 @@
 import { useRef, type JSX } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { mergeCssClasses } from "@/lib/utils";
 
 function isValidRegex(pattern: string): boolean {
-  try { new RegExp(pattern); return true; }
-  catch { return false; }
+  try {
+    new RegExp(pattern);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 type SearchInputProps = {
@@ -42,7 +46,11 @@ export default function SearchInput({
           size="xs"
           placeholder={placeholder}
           aria-invalid={regexError || undefined}
-          className={cn("w-32 pr-5", regexError && "border-destructive", className)}
+          className={mergeCssClasses(
+            "w-32 pr-5",
+            regexError && "border-destructive",
+            className,
+          )}
           value={value}
           onChange={(e) => onValueChange(e.target.value)}
           onKeyDown={(e) => {

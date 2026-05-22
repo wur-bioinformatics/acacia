@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LayoutNode, NodeId } from "../types";
 import { rerootFlat, rotateFlat, rotateFlatToOrder } from "../layout";
-import { useTreeStore } from "../treeStore";
+import { useTreeStore } from "../stores/treeStore";
 import { useSequenceStore } from "../../sequenceStore";
 import { collectVisible, planLeafReorder, type DragPlan } from "../utils/drag";
 import { MARGIN } from "../constants";

@@ -5,7 +5,7 @@ import { type JSX, useState, useEffect } from "react";
 import { HelpCircle } from "lucide-react";
 import { AcaciaBrand } from "./AcaciaLogo";
 import { viewOptions, useViewStore, type View } from "./viewStore";
-import { useNJStore } from "./NJ/njStore";
+import { useNJStore } from "./NJ/stores/njStore";
 import { useDrawStore } from "./MSA/stores/drawStore";
 import { version } from "../package.json";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

@@ -10,11 +10,21 @@ The toolbar at the top of the MSA view exposes every operation in three menus pl
 
 ## Analyse menu
 
-Builds a phylogenetic tree from the current alignment.
+Builds a phylogenetic tree from the current alignment and computes per-column quality scores.
+
+### Build NJ tree
 
 - **Substitution model** — PDiff (p-distance, works for any alphabet), Jukes-Cantor and Kimura 2P (DNA only), Poisson (protein only). The options that do not match the detected sequence type are disabled.
 - **Bootstrap replicates** — how many bootstrap iterations to run. Set to 0 to skip bootstrapping.
 - **Run** — kicks off the computation in a Web Worker. The MSA status bar shows progress; the view switches to the Tree tab when finished.
+
+### MSA quality
+
+**Compute** runs the TRIDENT and TCS column-quality scores in a Web Worker. Both scores are produced in one pass; progress appears in the status bar (`library N/M` while the pairwise library is being built, then `scoring N/M` while columns are evaluated).
+
+Editing the alignment (removing rows or columns) marks the cached scores as stale — the status bar shows `quality stale — recompute` and the TRIDENT/TCS view options are disabled until you click **Compute** again. Renaming a row does not invalidate the scores.
+
+Runtime grows roughly as O(N² × L²) — large alignments (hundreds of sequences, thousands of columns) may take a while.
 
 ## View dropdown
 
@@ -24,11 +34,12 @@ Controls what the canvas shows and how it is colored.
 - **Show letters** — residue letters drawn on top of colored cells (hidden automatically when zoomed out).
 - **Show consensus** — a synthetic consensus row above the alignment.
 - **Show minimap** — the panel at the bottom that shows the whole alignment.
-- **Track** — choose **None**, **Conservation** (per-column score), or **Logo** (sequence-logo bar) for the optional track panel below the minimap.
+- **Track** — choose **None**, **Conservation** (per-column score), **Logo** (sequence-logo bar), **TRIDENT**, or **TCS** for the optional track panel below the minimap. TRIDENT and TCS are only selectable after running **Analyse → Compute**.
 - **Color options** — pick a coloring scheme. Group availability depends on the current sequence type:
-  - DNA: standard nucleotide colors, hydropathy (where applicable), consecutive.
-  - Protein: standard amino-acid colors, hydropathy.
-  - Universal: parsimony informative, conserved sites, variable sites.
+  - DNA: **DNA** (standard ACGT) and **DNA ClustalX**.
+  - Protein: **AA ClustalX**, **AA Zappo** (physicochemical), **AA Taylor** (spectral).
+  - Analysis: **Parsimony Informative**, **Conserved**, **Variable**.
+  - Quality: **TRIDENT** and **TCS** tint each cell by its column quality score. Available after running **Analyse → Compute**.
 
 ## Search
 
@@ -48,10 +59,36 @@ The **minimap** at the bottom of the view shows the entire alignment at a glance
 
 The **track panel** between the minimap and the main canvas appears when a track is selected in the View dropdown. It renders one of:
 
-- **Conservation** — a column-wise score.
+- **Conservation** — a column-wise score (fraction of non-gap residues matching the consensus).
 - **Logo** — a sequence-logo style bar.
+- **TRIDENT** — a per-column quality bar combining conservation, residue similarity, and gap penalty.
+- **TCS** — per-column **mean** of the per-residue transitive consistency scores.
 
 The boundary between the main canvas, the track, and the minimap is draggable for resizing.
+
+## MSA quality scores
+
+The **TRIDENT** and **TCS** scores are computed on demand via **Analyse → Compute** and surface in two places: as a track-panel bar, and as a cell color scheme that tints the alignment.
+
+### TRIDENT
+
+TRIDENT (Valdar 2002) is the product of three normalized factors per column:
+
+- **C** — conservation: 1 − normalized Shannon entropy over non-gap residue frequencies.
+- **R** — residue similarity: the mean pairwise substitution score across non-gap residue pairs in the column, normalized to [0, 1] against the substitution matrix's min/max. BLOSUM62 is used for protein; a +5 / −4 match-mismatch matrix for DNA.
+- **G** — gap penalty: 1 − (gap count / row count).
+
+The final per-column score is `C × R × G`. High scores (≈ 1) indicate well-supported columns; low scores indicate disagreement or gappiness.
+
+### TCS
+
+TCS (Transitive Consistency Score, Chang et al. 2014 / T-Coffee) is a **per-residue** score. For each non-gap residue at column j of sequence s, it measures the fraction of other non-gap residues in column j whose pairwise alignment with s agrees with the column placement.
+
+Acacia builds the library from pairwise Needleman-Wunsch global alignments (BLOSUM62 with affine gaps for protein; a +5 / −4 / open −10 / extend −1 scheme for DNA). For each MSA column, every non-gap residue pair is checked against the library: each member of a consistent pair receives a vote of confidence.
+
+When TCS is selected under **Color options**, each cell is tinted by its own residue score — a poorly-supported residue stands out even in an otherwise consistent column. When TCS is selected under **Track**, the panel shows the per-column **mean** over non-gap residues.
+
+The implementation is library-based but does not generate a multi-method library the way the original T-Coffee tool does; scores are calibrated only to themselves. Treat residues with TCS near 1 as well-supported and lower scores as candidates for closer inspection.
 
 ## Editing
 

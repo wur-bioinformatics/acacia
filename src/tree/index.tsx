@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
 import { useContainerWidth } from "../hooks/useContainerWidth";
-import { useNJStore } from "../NJ/njStore";
+import { useNJStore } from "../NJ/stores/njStore";
 import { useEditStore } from "../editStore";
 import { buildLayout, flattenTree, parseNewick } from "./layout";
 import type { LayoutNode } from "./types";
-import { useTreeStore } from "./treeStore";
+import { useTreeStore } from "./stores/treeStore";
 import { useSequenceStore } from "../sequenceStore";
 import { DIVIDER_WIDTH, MARGIN, RADIAL_LABEL_GAP } from "./constants";
 import { useLabelDividerResize } from "./hooks/useLabelDividerResize";

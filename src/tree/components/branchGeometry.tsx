@@ -1,6 +1,6 @@
 import type { JSX } from "react";
 import type { BranchesProps, FlatNode, LayoutNode, NodeId, RadialGeomProps, RectGeomProps } from "../types";
-import { useTreeStore } from "../treeStore";
+import { useTreeStore } from "../stores/treeStore";
 import { truncate } from "../layout";
 import { RADIAL_LABEL_GAP } from "../constants";
 

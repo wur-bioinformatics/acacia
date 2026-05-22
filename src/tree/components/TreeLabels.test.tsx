@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render } from "@testing-library/react";
 import TreeLabels from "./TreeLabels";
-import { useTreeStore } from "../treeStore";
+import { useTreeStore } from "../stores/treeStore";
 import { useSequenceStore } from "../../sequenceStore";
 import { buildLayout, flattenTree, parseNewick } from "../layout";
 import { MARGIN } from "../constants";
