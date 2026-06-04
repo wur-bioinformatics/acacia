@@ -39,7 +39,7 @@ describe("njStore setRunning", () => {
 
 describe("njStore setResult", () => {
   const fakeMatrix = { names: ["A", "B"], matrix: [[0, 1], [1, 0]] };
-  const fakeParams = { substitution_model: "JC", n_bootstrap_samples: 0 };
+  const fakeParams = { substitution_model: "JC", n_bootstrap_samples: 0, gamma_shape: null, p_invar: null };
 
   it("stores result and sets status to done", () => {
     useNJStore.getState().setResult("(A,B);", fakeMatrix, 0.5, fakeParams);

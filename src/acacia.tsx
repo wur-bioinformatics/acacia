@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DocsSheet } from "./docs/DocsSheet";
 import { useDocsStore } from "./docs/docsStore";
+import { AnalysisProgress } from "./AnalysisProgress";
 
 function ViewDispatcher({ view }: { view: View }): JSX.Element | null {
   switch (view) {
@@ -67,6 +68,7 @@ export default function Acacia(): JSX.Element {
   return (
     <TooltipProvider delayDuration={300}>
     <div className="min-h-screen flex flex-col">
+      <AnalysisProgress />
       <div className="flex-1 max-w-screen mx-auto w-full px-3 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8">
         <div className="relative">
           <div className="absolute top-0 right-0 flex items-center h-8 z-10">

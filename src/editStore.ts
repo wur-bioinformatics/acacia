@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { MSAData } from "./MSA/types";
 import { useNJStore } from "./NJ/stores/njStore";
 import { useQualityStore } from "./MSA/stores/qualityStore";
+import { canApplyRemoval } from "./editUtils";
 
 export type RenameEdit = { type: "rename"; originalId: string; newName: string };
 export type RemoveRowEdit = { type: "remove_row"; originalId: string };
@@ -19,13 +20,16 @@ type EditState = {
   clearEdits: () => void;
 };
 
-export const useEditStore = create<EditState>((set) => ({
+export const useEditStore = create<EditState>((set, get) => ({
   originalMSA: [],
   edits: [],
   future: [],
   setOriginalMSA: (originalMSA) => set({ originalMSA, edits: [], future: [] }),
   addEdit: (edit) => {
     if (edit.type === "remove_row" || edit.type === "remove_column") {
+      const { originalMSA, edits } = get();
+      // Backstop: never let the edit log empty the alignment (0 rows or 0 columns).
+      if (!canApplyRemoval(originalMSA, edits, edit)) return;
       useNJStore.getState().markStale();
       useQualityStore.getState().markStale();
     }

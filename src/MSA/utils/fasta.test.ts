@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseFasta, readTextFile } from "./fasta";
+import { parseFasta, serializeFasta, readTextFile } from "./fasta";
 
 describe("parseFasta", () => {
   it("parses a simple two-record FASTA", () => {
@@ -53,6 +53,28 @@ describe("parseFasta", () => {
 
   it("returns empty array when no header lines are present", () => {
     expect(parseFasta("ACGT\nTGCA\n")).toEqual([]);
+  });
+});
+
+describe("serializeFasta", () => {
+  it("serializes a two-record alignment", () => {
+    const msa = [
+      { identifier: "seq1", sequence: "ACGT" },
+      { identifier: "seq2", sequence: "A--T" },
+    ];
+    expect(serializeFasta(msa)).toBe(">seq1\nACGT\n>seq2\nA--T\n");
+  });
+
+  it("returns empty string for an empty alignment", () => {
+    expect(serializeFasta([])).toBe("");
+  });
+
+  it("round-trips with parseFasta", () => {
+    const msa = [
+      { identifier: "human FOXP2", sequence: "MNQ--PVK" },
+      { identifier: "mouse Foxp2", sequence: "MNQ-VPVK" },
+    ];
+    expect(parseFasta(serializeFasta(msa))).toEqual(msa);
   });
 });
 

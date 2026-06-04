@@ -21,6 +21,51 @@ export function applyEdits(original: MSAData, edits: Edit[]): MSAData {
     });
 }
 
+/**
+ * Current alignment dimensions after applying the edit log, derived from counts
+ * alone (no MSA materialization). Rows shrink by the distinct removed
+ * identifiers, columns by the distinct removed original indices.
+ */
+export function currentDimensions(
+  original: MSAData,
+  edits: Edit[],
+): { rows: number; cols: number } {
+  if (original.length === 0) return { rows: 0, cols: 0 };
+  const removedRows = new Set<string>();
+  const removedCols = new Set<number>();
+  for (const e of edits) {
+    if (e.type === "remove_row") removedRows.add(e.originalId);
+    else if (e.type === "remove_column") removedCols.add(e.originalIndex);
+  }
+  return {
+    rows: original.length - removedRows.size,
+    cols: original[0].sequence.length - removedCols.size,
+  };
+}
+
+/**
+ * Safeguard against emptying the alignment: returns false for a removal that
+ * would delete the final remaining row or the final remaining column. Duplicate
+ * removals (the row/column is already gone) and all non-removal edits pass
+ * through unchanged. Enforced centrally in `editStore.addEdit`, so no deletion
+ * path — bulk select, keyboard, or the per-row × button — can leave 0 rows or
+ * 0 columns.
+ */
+export function canApplyRemoval(original: MSAData, edits: Edit[], edit: Edit): boolean {
+  if (edit.type !== "remove_row" && edit.type !== "remove_column") return true;
+  const { rows, cols } = currentDimensions(original, edits);
+  if (edit.type === "remove_row") {
+    const alreadyRemoved = edits.some(
+      (e) => e.type === "remove_row" && e.originalId === edit.originalId,
+    );
+    return alreadyRemoved || rows > 1;
+  }
+  const alreadyRemoved = edits.some(
+    (e) => e.type === "remove_column" && e.originalIndex === edit.originalIndex,
+  );
+  return alreadyRemoved || cols > 1;
+}
+
 export function resolveDisplayName(originalId: string, edits: Edit[]): string {
   let name = originalId;
   for (const e of edits) {

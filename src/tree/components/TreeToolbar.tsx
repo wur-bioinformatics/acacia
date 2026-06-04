@@ -1,7 +1,7 @@
 import type { JSX } from "react";
 import type { LayoutMode } from "../types";
 import { useTreeStore } from "../stores/treeStore";
-import UndoRedoButtons from "../../UndoRedoButtons";
+import EditMenu from "../../EditMenu";
 import { useNewickImport } from "../hooks/useNewickImport";
 import SearchInput from "@/components/SearchInput";
 import {
@@ -76,6 +76,25 @@ export default function TreeToolbar({ onExportSVG, onExportPNG, onExportNewick }
 
   return (
     <div className="flex items-center gap-1 bg-muted rounded-t-md px-1 py-1" data-testid="tree-toolbar">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm">File</Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="min-w-max p-1">
+          <DropdownMenuItem onSelect={openPicker}>Import tree…</DropdownMenuItem>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>Export</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="p-1">
+              <DropdownMenuItem onSelect={onExportSVG}>SVG</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onExportPNG}>PNG</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onExportNewick}>Newick</DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <EditMenu />
+
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="sm">View</Button>
@@ -179,15 +198,6 @@ export default function TreeToolbar({ onExportSVG, onExportPNG, onExportNewick }
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem onSelect={resetZoom}>Reset zoom</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm">Arrange</Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="min-w-max p-2">
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>Root</DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="p-1">
@@ -245,6 +255,7 @@ export default function TreeToolbar({ onExportSVG, onExportPNG, onExportNewick }
 
           <DropdownMenuSeparator />
 
+          <DropdownMenuItem onSelect={resetZoom}>Reset zoom</DropdownMenuItem>
           <DropdownMenuItem onSelect={resetStyles}>
             Reset selection &amp; styling
           </DropdownMenuItem>
@@ -253,25 +264,6 @@ export default function TreeToolbar({ onExportSVG, onExportPNG, onExportNewick }
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm">File</Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="min-w-max p-1">
-          <DropdownMenuItem onSelect={openPicker}>Import tree…</DropdownMenuItem>
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>Export</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="p-1">
-              <DropdownMenuItem onSelect={onExportSVG}>SVG</DropdownMenuItem>
-              <DropdownMenuItem onSelect={onExportPNG}>PNG</DropdownMenuItem>
-              <DropdownMenuItem onSelect={onExportNewick}>Newick</DropdownMenuItem>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <UndoRedoButtons />
 
       <ToggleGroup
         type="single"

@@ -102,6 +102,9 @@ type TreeState = {
   resetAll: () => void;
   // Called when a new tree is loaded — replaces flatTree, clears all state.
   setFlatTree: (ft: FlatTree) => void;
+  // Clears the tree entirely (no tree loaded). Used when a new MSA is loaded so
+  // the previous tree, its styles, collapse and selection don't linger.
+  reset: () => void;
   // Resets back to the originally loaded tree (O(1)), clearing styles and collapsed.
   resetRoot: () => void;
   // Reroots on the branch leading to nodeId. Styles and collapsed state are preserved.
@@ -204,6 +207,20 @@ export const useTreeStore = create<TreeState>((set) => ({
   },
 
   resetRoot: () => set({ flatTree: _originalFlatTree, ...VIEW_STATE_RESET, preCollapseFlatTree: null }),
+
+  reset: () => {
+    _originalFlatTree = null;
+    set({
+      flatTree: null,
+      previewFlatTree: null,
+      preCollapseFlatTree: null,
+      ...VIEW_STATE_RESET,
+      searchQuery: "",
+      xZoom: 1,
+      radialPan: { x: 0, y: 0 },
+      radialZoom: 1,
+    });
+  },
 
   rerootOnBranch: (nodeId) =>
     set((s) => {

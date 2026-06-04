@@ -24,6 +24,10 @@ export default function useMainCanvasWorker({
   const isWorkerBusy = useRef(false);
   const pendingMessage = useRef<RedrawMessage | null>(null);
   const [isRendering, setIsRendering] = useState(false);
+  // True until the worker completes the first full draw of this alignment. Used to
+  // show a loading state over the otherwise-blank canvas while the worker computes
+  // and paints (initial load only — reorders/edits keep the previous frame visible).
+  const [firstPaintPending, setFirstPaintPending] = useState(true);
 
   // Refs so the Zustand subscription always sends current dimensions/mode/data
   // without needing to re-subscribe when they change.
@@ -53,6 +57,8 @@ export default function useMainCanvasWorker({
         } else {
           isWorkerBusy.current = false;
           setIsRendering(false);
+          // Worker is idle → the latest (correctly-configured) draw has landed.
+          setFirstPaintPending(false);
         }
       };
     }
@@ -66,9 +72,12 @@ export default function useMainCanvasWorker({
   }, [canvasRef]);
 
   useEffect(() => {
-    // Send MSA data to worker when it changes
+    // Send MSA data to worker when it changes. Mark the worker busy so the
+    // follow-up redraw (with the real draw options) is queued behind this and the
+    // worker only reports idle — clearing firstPaintPending — after that final draw.
     if (!workerRef.current) return;
     const message: SetMSAMessage = { type: "setMSA", msaData };
+    isWorkerBusy.current = true;
     workerRef.current.postMessage(message);
   }, [msaData]);
 
@@ -167,7 +176,7 @@ export default function useMainCanvasWorker({
     workerRef.current.postMessage(message);
   }, [msaData]);
 
-  return { isRendering };
+  return { isRendering, firstPaintPending };
 }
 
 function permuteTcsToDisplay(

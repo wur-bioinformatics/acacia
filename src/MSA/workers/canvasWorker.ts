@@ -14,28 +14,36 @@ import {
 import { charToColor } from "../colourSchemes";
 import { CELL_SIZE, CELL_FILL_RATIO } from "../constants";
 
+const EMPTY_ANALYSIS: MSAColumnAnalysis = {
+  parsimonyInformativeSites: [],
+  conservedSites: [],
+  variableSites: [],
+};
+
 class CanvasDrawer {
   private canvas: OffscreenCanvas | null = null;
   private ctx: OffscreenCanvasRenderingContext2D | null = null;
   private msaData: MSAData = [];
-  private columnStats: MSAColumnStat[] = [];
-  private analysis: MSAColumnAnalysis = {
-    parsimonyInformativeSites: [],
-    conservedSites: [],
-    variableSites: [],
-  };
+  // Column stats (consensus) and site classification (Conserved/Variable/PI) are
+  // each O(rows × cols). They're computed lazily and cached so the first paint of a
+  // large alignment under the default residue coloring isn't blocked on work it
+  // doesn't use. Caches are cleared in setMSAData.
+  private columnStatsCache: MSAColumnStat[] | null = null;
+  private analysisCache: MSAColumnAnalysis | null = null;
   private trident: number[] | null = null;
   private tcs: number[][] | null = null;
   private options: DrawOptions = {
     cellSize: CELL_SIZE,
     showLetters: true,
     showConsensus: false,
+    showOnlyDifferences: true,
     showLabels: true,
     showMinimap: true,
     scale: 1,
     offsetX: 0,
     offsetY: 0,
     colorStyle: "DNA",
+    conservationThreshold: 0.9,
     isMinimap: false,
     highlightPattern: "",
     highlightUseRegex: false,
@@ -52,8 +60,16 @@ class CanvasDrawer {
 
   setMSAData(msaData: MSAData) {
     this.msaData = msaData;
-    this.columnStats = computeColumnStats(msaData);
-    this.analysis = analyseMSAColumns(msaData);
+    this.columnStatsCache = null;
+    this.analysisCache = null;
+  }
+
+  private getColumnStats(): MSAColumnStat[] {
+    return (this.columnStatsCache ??= computeColumnStats(this.msaData));
+  }
+
+  private getAnalysis(): MSAColumnAnalysis {
+    return (this.analysisCache ??= analyseMSAColumns(this.msaData));
   }
 
   setQuality(trident: number[] | null, tcs: number[][] | null) {
@@ -138,9 +154,17 @@ class CanvasDrawer {
 
   drawMSA() {
     const ctx = this.ctx!;
-    const { cellSize, showLetters, showConsensus, scale, offsetX, offsetY } =
+    const { cellSize, showLetters, showConsensus, showOnlyDifferences, scale, offsetX, offsetY } =
       this.options;
-    const consensus = computeConsensus(this.columnStats);
+    // Only pay for the lazy O(rows × cols) passes when the current view needs them:
+    // consensus row or "% Conserved" style → column stats; Conserved/Variable/PI → analysis.
+    const style = this.options.colorStyle;
+    const needsColumnStats = showConsensus || style === "% Conserved";
+    const columnStats = needsColumnStats ? this.getColumnStats() : null;
+    const consensus = showConsensus ? computeConsensus(columnStats!) : null;
+    const needsAnalysis =
+      style === "Conserved" || style === "Variable" || style === "Parsimony Informative";
+    const analysis = needsAnalysis ? this.getAnalysis() : EMPTY_ANALYSIS;
 
     const nRows = this.msaData.length;
     const nCols = this.msaData[0].sequence.length;
@@ -177,16 +201,18 @@ class CanvasDrawer {
     // Consensus row (row 0). row = -1 signals "no per-residue context" to charToColor.
     if (showConsensus) {
       for (let col = startCol; col < endCol; col++) {
-        const char = consensus[col] ?? "-";
+        const char = consensus![col] ?? "-";
         ctx.fillStyle = charToColor(
           char,
           col,
           this.options.colorStyle,
-          this.analysis,
+          analysis,
           this.options.darkMode,
           this.trident,
           this.tcs,
           -1,
+          columnStats,
+          this.options.conservationThreshold,
         );
         ctx.fillRect(
           col * cellSize,
@@ -238,7 +264,7 @@ class CanvasDrawer {
         : undefined;
       for (let col = startCol; col < endCol; col++) {
         const char = this.msaData[row].sequence[col];
-        const consensusChar = consensus[col];
+        const consensusChar = consensus ? consensus[col] : undefined;
         const matchesConsensus =
           showConsensus && char.toUpperCase() === consensusChar?.toUpperCase();
 
@@ -253,11 +279,13 @@ class CanvasDrawer {
             char,
             col,
             this.options.colorStyle,
-            this.analysis,
+            analysis,
             this.options.darkMode,
             this.trident,
             this.tcs,
             row,
+            columnStats,
+            this.options.conservationThreshold,
           );
         }
         ctx.fillRect(
@@ -268,7 +296,7 @@ class CanvasDrawer {
         );
 
         if (showLetters && drawLetters && !this.isMinimap) {
-          const label = matchesConsensus ? "·" : char;
+          const label = matchesConsensus && showOnlyDifferences ? "·" : char;
           ctx.fillStyle = this.options.darkMode ? "white" : "black";
           ctx.font = `${cellSize * 0.6}px "Azeret Mono", monospace`;
           ctx.textBaseline = "middle";

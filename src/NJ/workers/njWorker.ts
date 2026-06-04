@@ -20,9 +20,13 @@ self.onmessage = (event: MessageEvent<NJMessage>) => {
       );
       postMessage({ type: "njResult", newick, distanceMatrix, avgDistance });
     } catch (error) {
+      // nj.rs sets a stable `Error.name` code (e.g. "IncompatibleModel",
+      // "SequenceLengthMismatch"); forward it so the UI can branch on the code
+      // rather than matching the raw message text.
       postMessage({
         type: "njError",
         error: error instanceof Error ? error.message : String(error),
+        code: error instanceof Error ? error.name : undefined,
       });
     }
   }

@@ -1,4 +1,4 @@
->sp|Q5YGP8|PLET1_ARATH AP2-like ethylene-responsive transcription factor PLT1 OS=Arabidopsis thaliana OX=3702 GN=PLT1 PE=2 SV=1
+>PLET1_ARATH
 M------------------------NSNNWLGFPLSPNN---------------------
 ---------SSLPPH----------------EYNLGLVSDHMDNPFQTQ---------EW
 NM----INPHGGG----GDEGGEVPKVADFLGVSKPDENQSNH-----------------
@@ -14,7 +14,7 @@ Q-NNDISHYNNNNAHDSSSFNHHSY----IQTQLHLH-QQTNNYLQ----QQSSQNS-QQ
 LYNAYLHSNPALLHGLVSTSIVDNNNNNGGSSGS----YNTAAFLGNHGIGIGSSSTVGS
 T--EEFPTVKTDYDMPSSDGTGGYSGWTS-ESVQ--------------------------
 -------GSNPGGVFTMWNE---
->sp|Q5YGP7|PLET2_ARATH AP2-like ethylene-responsive transcription factor PLT2 OS=Arabidopsis thaliana OX=3702 GN=PLT2 PE=2 SV=1
+>PLET2_ARATH
 M------------------------NSNNWLAFPLSPTH---------------------
 ---------SSLPPHI---------HSSQNSHFNLGLVNDNIDNPFQNQ---------GW
 NM----INPHGGG----G-EGGEVPKVADFLGVSKSGDHHTDH-----------------
@@ -30,7 +30,7 @@ QNNNDISQYH-----DS-----FSY----IQTQLHLHQQQTNNYL------QSSSHT-SQ
 LYNAYLQSNPGLLHGFVS----DNN--------------NTSGFLGNNGIGIGSSSTVGS
 SAEEEFPAVKVDYDMPPSGGATGYGGWNSGESAQ--------------------------
 -------GSNPGGVFTMWNE---
->sp|Q6PQQ3|AIL5_ARATH AP2-like ethylene-responsive transcription factor AIL5 OS=Arabidopsis thaliana OX=3702 GN=AIL5 PE=2 SV=2
+>AIL5_ARATH
 MKNNNNKSSSSSSYDSSLSPSSSSSSHQNWLSFSLSNNNNNF--NSSSNPNLTS---ST-
 --------SDHHHPH----------------PSHLSLFQAFSTSPVERQDGSPGVSPSDA
 TAVLS-VYPGG-------------PKLENFLGGGASTTTTRPM-----------------
@@ -46,7 +46,7 @@ HGGTFYHTGI---PIKPDPADHYWSNIFGFQANPKAEMRPLANF----GSDLHNPSPGYA
 IMPVMQEGENNFGGSFVGSDGYNNHSAASNPVSAIPLSSTTTMSNGNEGY--------GG
 N---------INW--------INNNISSSYQTAKSNLSV---------------------
 ---------LHTPVFGLE-----
->sp|Q6PQQ4|BBM_ARATH AP2-like ethylene-responsive transcription factor BBM OS=Arabidopsis thaliana OX=3702 GN=BBM PE=2 SV=2
+>BBM_ARATH
 M-----------------------NSMNNWLGFSLSPHDQNH--HRTDVDSSTT---RTA
 VDVAGGYCFDLAAPS----DESSAVQTSFLSPFGVTLEAFTRDNNSHSR---------DW
 DI-------NGGACNNINNNEQNGPKLENFLGRT--TTIYNTN-ETVV------------
@@ -62,7 +62,7 @@ QQERYVGYYN--------------------------------------GGNLSTEST-RV
 CFKQEEEQQHFLRNSPSHMTNVDHHSSTSDDSVTVC--GNVVSYGGYQGFAI----PVGT
 S---------VNYD-PFTAAEIAYNARNHYYYAQHQQQQQIQQSPGGDFPVAISNNHSSN
 MYFHGEGGGEGAPTFSVWNDT--
->sp|Q1PFE1|AIL1_ARATH AP2-like ethylene-responsive transcription factor AIL1 OS=Arabidopsis thaliana OX=3702 GN=AIL1 PE=2 SV=1
+>AIL1_ARATH
 M--------------------------KKWLGFSLTPPLRI---CNSEEEELRH------
 -------------------D--------------------------------------GS
 DVWRYDINFDHH------HHDEDVPKVEDLLSNSHQTEYPINHNQTNVNCTTVVNRLNPP
@@ -78,7 +78,7 @@ NAVTNFDINRY-----DVKRICSSSTI-VDSDQAKHSPTSS-------------------
 ----------------------------------------------------------GA
 G-----------------------------------------------------------
 ----------------------H
->sp|Q38914|ANT_ARATH AP2-like ethylene-responsive transcription factor ANT OS=Arabidopsis thaliana OX=3702 GN=ANT PE=1 SV=2
+>ANT_ARATH
 MK---------SFCDND---DNNHSNTTNLLGFSLSSNMMKMGGRGGREAIYSSS-TSSA
 ATS-----SSSVPPQLVVGDNTSNFGVCYGSNPNGGIYSHMSVMPLRSD---------GS
 LCLMEALNRSSHS----NHHQDSSPKVEDFFGTHHNNTSHKEA-----------------
@@ -94,7 +94,7 @@ VNQKMFGSNM--------------------------------------GGNMSPWTS---
 ------------------------NPNAELKTVALTL-----------------------
 ---------------P--------------------------------------------
 ----------QMPVFAAWADS--
->sp|Q52QU2-2|AIL6_ARATH Isoform 2 of AP2-like ethylene-responsive transcription factor AIL6 OS=Arabidopsis thaliana OX=3702 GN=AIL6
+>AIL6_ARATH
 MM----------------------APMTNWLTFSLSPMEML---RSSDQSQFVSYDASS-
 --------AASSSPYLL--D---NFYGWSNQKPQEF-------FKEEAQL-AAAASMADS
 TILTTFVDPQSH------HSQNHIPKLEDFLGDSSSIVRYSDNSQTDT------------
@@ -110,7 +110,7 @@ QSQQIIPCGI---PFEAAALYHHHQ-----QQQQHQQQQQQQNFFQHFPANAASDST---
 --------------------GSNNNSNVQGTMGLMA------------------------
 ---------------P--------------------------------------------
 ----------NPAEFFLWPNQSY
->sp|Q52QU2|AIL6_ARATH AP2-like ethylene-responsive transcription factor AIL6 OS=Arabidopsis thaliana OX=3702 GN=AIL6 PE=2 SV=1
+>AIL6_ARATH_2
 MM----------------------APMTNWLTFSLSPMEML---RSSDQSQFVSYDASS-
 --------AASSSPYLL--D---NFYGWSNQKPQEF-------FKEEAQL-AAAASMADS
 TILTTFVDPQSH------HSQNHIPKLEDFLGDSSSIVRYSDNSQTDT------------
@@ -126,7 +126,7 @@ QSQQIIPCGI---PFEAAALYHHHQ-----QQQQHQQQQQQQNFFQHFPANAASDST---
 --------------------GSNNNSNVQGTMGLMA------------------------
 ---------------P--------------------------------------------
 ----------NPAEFFLWPNQSY
->sp|Q6J9N8|AIL7_ARATH AP2-like ethylene-responsive transcription factor AIL7 OS=Arabidopsis thaliana OX=3702 GN=AIL7 PE=2 SV=2
+>AIL7_ARATH
 MA----------------------PPMTNCLTFSLSPMEML---KSTDQSHFSS---SY-
 --------DDSSTPYLI--D---NFYA----------------FKEEAEIEAAAASMADS
 TTLSTFFD----------HSQTQIPKLEDFLGDS--FVRYSDN-QTET------------
@@ -142,7 +142,7 @@ NAVTNFEMNRY-----DIEAVMNSSLP-VGGAAAKRHKLK-----LALESPSSSS-S---
 ---------------------------IQAPM----------------------------
 ------------------------------------------------------------
 ----------NQAEFFLWPNQSY
->sp|Q94AN4|AP2L1_ARATH AP2-like ethylene-responsive transcription factor At1g16060 OS=Arabidopsis thaliana OX=3702 GN=At1g16060 PE=2 SV=1
+>AP2L1_ARATH
 ------------------------------------------------------------
 ------------------------------------------------------------
 ------------------------------------------------------------

@@ -7,6 +7,7 @@ beforeEach(() => {
     drawOptions: {
       showLetters: true,
       showConsensus: true,
+      showOnlyDifferences: true,
       showLabels: true,
       showMinimap: true,
       scale: 1,
@@ -15,6 +16,7 @@ beforeEach(() => {
       isMinimap: false,
       cellSize: 16,
       colorStyle: "DNA",
+      conservationThreshold: 0.9,
       highlightPattern: "",
       highlightUseRegex: false,
       darkMode: false,

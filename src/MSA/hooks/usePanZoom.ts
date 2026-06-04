@@ -53,6 +53,7 @@ export default function usePanZoom({
     drawOptions: { scale, cellSize },
     setDrawOptions,
   } = useDrawStore();
+  const interactionMode = useDrawStore((s) => s.interactionMode);
   const { mainOverlayCanvas: canvas } = useCanvasContext();
   const isDragging = useRef(false);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
@@ -112,6 +113,9 @@ export default function usePanZoom({
       Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
 
     const onMouseDown = (e: MouseEvent) => {
+      // Select mode and modifier-held drags belong to selection, not panning.
+      if (useDrawStore.getState().interactionMode === "select") return;
+      if (e.shiftKey || e.metaKey || e.ctrlKey) return;
       isDragging.current = true;
       lastPos.current = { x: e.clientX, y: e.clientY };
       canvas.style.cursor = "grabbing";
@@ -126,6 +130,7 @@ export default function usePanZoom({
     };
 
     const onMouseUp = () => {
+      if (!isDragging.current) return;
       isDragging.current = false;
       lastPos.current = null;
       canvas.style.cursor = "grab";
@@ -234,9 +239,9 @@ export default function usePanZoom({
     };
   }, [canvas, scale, setDrawOptions, panBy, clampScale, clampPan]); // scrollMode intentionally removed — zoom uses Ctrl/Cmd+scroll now
 
-  // Set initial cursor
+  // Cursor reflects the active interaction mode.
   useEffect(() => {
     if (!canvas) return;
-    canvas.style.cursor = "grab";
-  }, [canvas]);
+    canvas.style.cursor = interactionMode === "select" ? "crosshair" : "grab";
+  }, [canvas, interactionMode]);
 }

@@ -12,5 +12,5 @@ export type NJMessage = {
 
 export type NJResultMessage =
   | { type: "njResult"; newick: string; distanceMatrix: DistanceResult; avgDistance: number }
-  | { type: "njError"; error: string }
+  | { type: "njError"; error: string; code?: string }
   | { type: "njProgress"; current: number; total: number };

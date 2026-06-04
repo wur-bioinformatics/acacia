@@ -8,6 +8,7 @@ type Params = {
   width: number;
   height: number;
   nCols: number;
+  orderedIdentifiers?: string[];
 };
 
 export default function useOverlay({
@@ -16,6 +17,7 @@ export default function useOverlay({
   width,
   height,
   nCols,
+  orderedIdentifiers,
 }: Params) {
   const { drawOptions, setDrawOptions, setHoverRow } = useDrawStore();
   const { offsetX, offsetY, scale } = drawOptions;
@@ -26,25 +28,96 @@ export default function useOverlay({
   const setHoverRowRef = useRef(setHoverRow);
   setHoverRowRef.current = setHoverRow;
 
-  // Main canvas: column/row highlight on mousemove + selected column indicator
+  // Map from identifier → display row index (post-consensus offset). The +1 for
+  // consensus is folded in here so painters can use the result directly.
+  const idToRowRef = useRef<Map<string, number> | null>(null);
+  {
+    const showConsensus = drawOptions.showConsensus;
+    const m = new Map<string, number>();
+    if (orderedIdentifiers) {
+      const offset = showConsensus ? 1 : 0;
+      for (let i = 0; i < orderedIdentifiers.length; i++) {
+        m.set(orderedIdentifiers[i], i + offset);
+      }
+    }
+    idToRowRef.current = m;
+  }
+
+  // Main canvas: column/row highlight on mousemove + selection + threshold preview + marquee
   useEffect(() => {
     const overlayCanvas = overlayRef.current;
     if (!overlayCanvas || isMinimap) return;
     const ctx = overlayCanvas.getContext("2d");
     if (!ctx) return;
 
-    function drawSelectedColumn() {
-      const { selectedColumn } = useDrawStore.getState();
-      if (selectedColumn === null || !ctx) return;
-      const { offsetX, scale } = drawOptionsRef.current;
-      const x = selectedColumn * CELL_SIZE * scale + offsetX;
+    const hover = { col: null as number | null, row: null as number | null };
+
+    function paintSelection() {
+      const { selection } = useDrawStore.getState();
+      if (!ctx) return;
+      const { offsetX, offsetY, scale } = drawOptionsRef.current;
       ctx.save();
       ctx.strokeStyle = "rgba(220,60,60,0.8)";
-      ctx.fillStyle = "rgba(220,60,60,0.15)";
-      ctx.lineWidth = 2;
-      ctx.fillRect(x, 0, CELL_SIZE * scale, height);
-      ctx.strokeRect(x, 0, CELL_SIZE * scale, height);
+      ctx.fillStyle = "rgba(220,60,60,0.18)";
+      ctx.lineWidth = 1;
+      for (const c of selection.columns) {
+        const x = c * CELL_SIZE * scale + offsetX;
+        ctx.fillRect(x, 0, CELL_SIZE * scale, height);
+        ctx.strokeRect(x, 0, CELL_SIZE * scale, height);
+      }
+      const idToRow = idToRowRef.current;
+      if (idToRow) {
+        for (const id of selection.rows) {
+          const row = idToRow.get(id);
+          if (row === undefined) continue;
+          const y = row * CELL_SIZE + offsetY;
+          ctx.fillRect(0, y, width, CELL_SIZE);
+          ctx.strokeRect(0, y, width, CELL_SIZE);
+        }
+      }
       ctx.restore();
+    }
+
+    function paintDragRect() {
+      const { dragRect } = useDrawStore.getState();
+      if (!dragRect || !ctx) return;
+      const x = Math.min(dragRect.startX, dragRect.curX);
+      const y = Math.min(dragRect.startY, dragRect.curY);
+      const w = Math.abs(dragRect.curX - dragRect.startX);
+      const h = Math.abs(dragRect.curY - dragRect.startY);
+      ctx.save();
+      ctx.fillStyle = "rgba(48,92,222,0.15)";
+      ctx.strokeStyle = "rgba(48,92,222,0.7)";
+      ctx.lineWidth = 1;
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeRect(x, y, w, h);
+      ctx.restore();
+    }
+
+    function paintHover() {
+      if (!ctx) return;
+      const { offsetX, offsetY, scale } = drawOptionsRef.current;
+      ctx.save();
+      ctx.strokeStyle = "rgba(48,92,222,0.6)";
+      ctx.lineWidth = 1;
+      ctx.fillStyle = "rgba(48,92,222,0.3)";
+      if (hover.row !== null) {
+        ctx.strokeRect(0, hover.row * CELL_SIZE + offsetY, width, CELL_SIZE);
+        ctx.fillRect(0, hover.row * CELL_SIZE + offsetY, width, CELL_SIZE);
+      }
+      if (hover.col !== null) {
+        ctx.fillRect(hover.col * CELL_SIZE * scale + offsetX, 0, CELL_SIZE * scale, height);
+        ctx.strokeRect(hover.col * CELL_SIZE * scale + offsetX, 0, CELL_SIZE * scale, height);
+      }
+      ctx.restore();
+    }
+
+    function redraw() {
+      if (!ctx) return;
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      paintSelection();
+      paintHover();
+      paintDragRect();
     }
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -52,32 +125,30 @@ export default function useOverlay({
       const x = e.offsetX;
       const y = e.offsetY;
       const col = Math.floor((x - offsetX) / (CELL_SIZE * scale));
-      const row = Math.floor((y - offsetY) / CELL_SIZE);
-
-      // Map visual row to data row (skip consensus row at index 0)
-      const dataRow = showConsensus ? row - 1 : row;
+      const visualRow = Math.floor((y - offsetY) / CELL_SIZE);
+      const dataRow = showConsensus ? visualRow - 1 : visualRow;
       setHoverRowRef.current(dataRow >= 0 ? dataRow : null);
-
-      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-      ctx.strokeStyle = "rgba(48,92,222,0.6)";
-      ctx.lineWidth = 1;
-      ctx.fillStyle = "rgba(48,92,222,0.3)";
-      ctx.strokeRect(0, row * CELL_SIZE + offsetY, width, CELL_SIZE);
-      ctx.fillRect(0, row * CELL_SIZE + offsetY, width, CELL_SIZE);
-      ctx.fillRect(col * CELL_SIZE * scale + offsetX, 0, CELL_SIZE * scale, height);
-      ctx.strokeRect(col * CELL_SIZE * scale + offsetX, 0, CELL_SIZE * scale, height);
-      drawSelectedColumn();
+      hover.col = col;
+      hover.row = visualRow;
+      redraw();
     };
 
     const handleMouseLeave = () => {
-      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
       setHoverRowRef.current(null);
-      drawSelectedColumn();
+      hover.col = null;
+      hover.row = null;
+      redraw();
     };
+
+    // Repaint when selection/dragRect changes
+    const unsubscribe = useDrawStore.subscribe(redraw);
 
     overlayCanvas.addEventListener("mousemove", handleMouseMove);
     overlayCanvas.addEventListener("mouseleave", handleMouseLeave);
+    // Initial paint to surface existing selection on mount
+    redraw();
     return () => {
+      unsubscribe();
       overlayCanvas.removeEventListener("mousemove", handleMouseMove);
       overlayCanvas.removeEventListener("mouseleave", handleMouseLeave);
     };

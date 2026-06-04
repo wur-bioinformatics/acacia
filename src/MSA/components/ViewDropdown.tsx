@@ -13,18 +13,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
-
-const QUALITY_SCHEMES: ReadonlySet<ColorStyle> = new Set(["TRIDENT", "TCS"]);
 
 export default function ViewDropdown(): JSX.Element {
   const {
     drawOptions: {
       showLetters,
       showConsensus,
+      showOnlyDifferences,
       showLabels,
       showMinimap,
       colorStyle: currentColorStyle,
+      conservationThreshold,
     },
     sequenceTypeOverride,
     activeTrack,
@@ -32,8 +33,11 @@ export default function ViewDropdown(): JSX.Element {
     setActiveTrack,
   } = useDrawStore();
   const { detectedSequenceType } = useMSAStore();
-  const qualityReady = useQualityStore(
-    (s) => s.status === "done" && s.trident !== null && s.tcs !== null,
+  const tridentReady = useQualityStore(
+    (s) => s.tridentStatus === "done" && s.trident !== null && !s.tridentStale,
+  );
+  const tcsReady = useQualityStore(
+    (s) => s.tcsStatus === "done" && s.tcs !== null && !s.tcsStale,
   );
 
   const effectiveType = sequenceTypeOverride ?? detectedSequenceType;
@@ -62,6 +66,17 @@ export default function ViewDropdown(): JSX.Element {
         >
           Show consensus
         </DropdownMenuCheckboxItem>
+        {showConsensus && (
+          <DropdownMenuCheckboxItem
+            checked={showOnlyDifferences}
+            onCheckedChange={() =>
+              setDrawOptions({ showOnlyDifferences: !showOnlyDifferences })
+            }
+            className="pl-8"
+          >
+            Show only differences
+          </DropdownMenuCheckboxItem>
+        )}
         <DropdownMenuCheckboxItem
           checked={showMinimap}
           onCheckedChange={() => setDrawOptions({ showMinimap: !showMinimap })}
@@ -88,15 +103,15 @@ export default function ViewDropdown(): JSX.Element {
             Logo
           </label>
           <label
-            className={`flex items-center gap-2 whitespace-nowrap text-sm ${qualityReady ? "cursor-pointer" : "opacity-30 cursor-not-allowed"}`}
+            className={`flex items-center gap-2 whitespace-nowrap text-sm ${tridentReady ? "cursor-pointer" : "opacity-30 cursor-not-allowed"}`}
           >
-            <RadioGroupItem value="trident" disabled={!qualityReady} className="size-3" />
+            <RadioGroupItem value="trident" disabled={!tridentReady} className="size-3" />
             TRIDENT
           </label>
           <label
-            className={`flex items-center gap-2 whitespace-nowrap text-sm ${qualityReady ? "cursor-pointer" : "opacity-30 cursor-not-allowed"}`}
+            className={`flex items-center gap-2 whitespace-nowrap text-sm ${tcsReady ? "cursor-pointer" : "opacity-30 cursor-not-allowed"}`}
           >
-            <RadioGroupItem value="tcs" disabled={!qualityReady} className="size-3" />
+            <RadioGroupItem value="tcs" disabled={!tcsReady} className="size-3" />
             TCS
           </label>
         </RadioGroup>
@@ -115,21 +130,38 @@ export default function ViewDropdown(): JSX.Element {
                   {group.label}
                 </div>
                 {group.schemes.map((colorStyle) => {
-                  const disabled =
-                    groupDisabled ||
-                    (QUALITY_SCHEMES.has(colorStyle) && !qualityReady);
+                  const qualityDisabled =
+                    (colorStyle === "TRIDENT" && !tridentReady) ||
+                    (colorStyle === "TCS" && !tcsReady);
+                  const disabled = groupDisabled || qualityDisabled;
                   return (
-                    <label
-                      key={colorStyle}
-                      className={`flex items-center gap-2 whitespace-nowrap text-sm ${disabled ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}
-                    >
-                      <RadioGroupItem
-                        value={colorStyle}
-                        disabled={disabled}
-                        className="size-3"
-                      />
-                      {colorStyle}
-                    </label>
+                    <Fragment key={colorStyle}>
+                      <label
+                        className={`flex items-center gap-2 whitespace-nowrap text-sm ${disabled ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}
+                      >
+                        <RadioGroupItem
+                          value={colorStyle}
+                          disabled={disabled}
+                          className="size-3"
+                        />
+                        {colorStyle}
+                      </label>
+                      {colorStyle === "% Conserved" &&
+                        currentColorStyle === "% Conserved" && (
+                          <div className="pt-1 pb-1">
+                            <div className="text-xs text-muted-foreground pb-1">
+                              Highlight columns ≥ {(conservationThreshold * 100).toFixed(0)}% conserved
+                            </div>
+                            <Slider
+                              min={0}
+                              max={1}
+                              step={0.01}
+                              value={[conservationThreshold]}
+                              onValueChange={(v) => setDrawOptions({ conservationThreshold: v[0] })}
+                            />
+                          </div>
+                        )}
+                    </Fragment>
                   );
                 })}
               </Fragment>

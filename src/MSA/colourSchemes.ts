@@ -1,6 +1,7 @@
 import type {
   ColorStyle,
   MSAColumnAnalysis,
+  MSAColumnStat,
   MSAData,
   SequenceType,
 } from "./types";
@@ -124,7 +125,7 @@ export const COLOR_SCHEME_GROUPS: {
   },
   {
     label: "Analysis",
-    schemes: ["Parsimony Informative", "Conserved", "Variable"],
+    schemes: ["Parsimony Informative", "Conserved", "% Conserved", "Variable"],
     type: null,
   },
   {
@@ -138,6 +139,7 @@ const COLUMN_UNIFORM_STYLES: ReadonlySet<ColorStyle> = new Set([
   "Parsimony Informative",
   "Variable",
   "Conserved",
+  "% Conserved",
   "TRIDENT",
 ]);
 
@@ -161,6 +163,8 @@ export function columnColor(
   analysis: MSAColumnAnalysis,
   trident: number[] | null,
   darkMode: boolean,
+  columnStats: MSAColumnStat[] | null = null,
+  conservationThreshold = 1,
 ): string {
   const gap = darkMode ? GAP.dark : GAP.light;
   switch (style) {
@@ -170,6 +174,11 @@ export function columnColor(
       return analysis.variableSites.indexOf(col) > -1 ? HIGHLIGHT_COLOR : gap;
     case "Conserved":
       return analysis.conservedSites.indexOf(col) > -1 ? HIGHLIGHT_COLOR : gap;
+    case "% Conserved":
+      return columnStats &&
+        (columnStats[col]?.identity ?? 0) >= conservationThreshold
+        ? HIGHLIGHT_COLOR
+        : gap;
     case "TRIDENT":
       return trident ? qualityGradient(trident[col] ?? 0, darkMode) : gap;
     default:
@@ -204,6 +213,8 @@ export function charToColor(
   trident: number[] | null = null,
   tcs: number[][] | null = null,
   row: number = -1,
+  columnStats: MSAColumnStat[] | null = null,
+  conservationThreshold = 1,
 ): string {
   const gap = darkMode ? GAP.dark : GAP.light;
 
@@ -216,7 +227,15 @@ export function charToColor(
   }
 
   if (isColumnUniformStyle(style)) {
-    return columnColor(col, style, analysis, trident, darkMode);
+    return columnColor(
+      col,
+      style,
+      analysis,
+      trident,
+      darkMode,
+      columnStats,
+      conservationThreshold,
+    );
   }
   const upper = char.toUpperCase();
   const mode = darkMode ? "dark" : "light";

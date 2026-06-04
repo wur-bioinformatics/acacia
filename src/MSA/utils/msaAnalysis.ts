@@ -7,23 +7,31 @@ function columnChars(msaData: MSAData, col: number): string[] {
 /** Single pass over every column, producing consensus + conservation data. */
 export function computeColumnStats(msaData: MSAData): MSAColumnStat[] {
   const nCols = msaData[0].sequence.length;
-  return Array.from({ length: nCols }, (_, col) => {
-    const counts = columnChars(msaData, col)
-      .map((c) => c.toUpperCase())
-      .filter((c) => c !== "-")
-      .reduce<Record<string, number>>((acc, c) => {
-        acc[c] = (acc[c] || 0) + 1;
-        return acc;
-      }, {});
-    const total = Object.values(counts).reduce((s, n) => s + n, 0);
-    const entries = Object.entries(counts);
-    const dominantChar =
-      entries.length === 0
-        ? "-"
-        : entries.reduce((a, b) => (b[1] > a[1] ? b : a))[0];
-    const score = total === 0 ? 0 : (counts[dominantChar] ?? 0) / total;
-    return { dominantChar, score, counts };
-  });
+  const nRows = msaData.length;
+  const stats = new Array<MSAColumnStat>(nCols);
+  for (let col = 0; col < nCols; col++) {
+    // One pass over the column, no intermediate arrays — this runs over every
+    // cell on load (consensus row) so allocation matters for large alignments.
+    const counts: Record<string, number> = {};
+    let total = 0;
+    let dominantChar = "-";
+    let dominantCount = 0;
+    for (let row = 0; row < nRows; row++) {
+      const ch = msaData[row].sequence[col];
+      if (ch === "-") continue;
+      const u = ch.toUpperCase();
+      const n = (counts[u] = (counts[u] ?? 0) + 1);
+      total++;
+      if (n > dominantCount) {
+        dominantCount = n;
+        dominantChar = u;
+      }
+    }
+    const score = total === 0 ? 0 : dominantCount / total;
+    const identity = nRows === 0 ? 0 : dominantCount / nRows;
+    stats[col] = { dominantChar, score, identity, counts };
+  }
+  return stats;
 }
 
 export function computeConsensus(stats: MSAColumnStat[]): string[] {

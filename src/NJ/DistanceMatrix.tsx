@@ -5,7 +5,7 @@ import { useSequenceStore } from "../sequenceStore";
 import { useEditStore } from "../editStore";
 import { resolveDisplayName } from "../editUtils";
 import { useShallow } from "zustand/react/shallow";
-import UndoRedoButtons from "../UndoRedoButtons";
+import EditMenu from "../EditMenu";
 import SequenceLabels from "../SequenceLabels";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -172,6 +172,15 @@ export default function DistanceMatrix(): JSX.Element {
       <div className="flex items-center gap-1 bg-muted rounded-t-md px-1 py-1 flex-shrink-0">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm">File</Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-max p-1">
+            <DropdownMenuItem onSelect={exportCSV}>Export distances (CSV)</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <EditMenu />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm">View</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="min-w-max p-2">
@@ -201,15 +210,6 @@ export default function DistanceMatrix(): JSX.Element {
             </RadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm">File</Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-max p-1">
-            <DropdownMenuItem onSelect={exportCSV}>Export distances (CSV)</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <UndoRedoButtons />
         {avgDistance !== null && (
           <span className="ml-auto pr-1 text-xs font-medium opacity-70">
             Avg distance:{" "}

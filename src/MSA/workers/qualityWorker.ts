@@ -11,14 +11,20 @@ import {
 
 self.onmessage = (event: MessageEvent<QualityRunMessage>) => {
   if (event.data.type !== "runQuality") return;
-  const { msaData, sequenceType } = event.data;
+  const { metric, msaData, sequenceType } = event.data;
 
   try {
     const { matrix, gapOpen, gapExtend, alphabetSize } = SCORING_PARAMS[sequenceType];
-    const lookup = buildLookup(matrix);
 
+    if (metric === "trident") {
+      const trident = computeTrident(msaData, matrix, alphabetSize);
+      postMessage({ type: "tridentResult", trident });
+      return;
+    }
+
+    const lookup = buildLookup(matrix);
     const post = (stage: QualityStage, current: number, total: number) =>
-      postMessage({ type: "qualityProgress", stage, current, total });
+      postMessage({ type: "qualityProgress", metric, stage, current, total });
 
     const stripped = msaData.map((s) => stripGapsAndIndex(s.sequence));
     const library = buildPairwiseLibrary(
@@ -35,12 +41,12 @@ self.onmessage = (event: MessageEvent<QualityRunMessage>) => {
       (current, total) => post("scoring", current, total),
     );
     const tcsColMean = computeTcsColumnMeans(msaData, tcs);
-    const trident = computeTrident(msaData, matrix, alphabetSize);
 
-    postMessage({ type: "qualityResult", trident, tcs, tcsColMean });
+    postMessage({ type: "tcsResult", tcs, tcsColMean });
   } catch (error) {
     postMessage({
       type: "qualityError",
+      metric,
       error: error instanceof Error ? error.message : String(error),
     });
   }

@@ -34,6 +34,18 @@ describe("computeColumnStats", () => {
     expect(stats[0].counts["A"]).toBe(2);
     expect(stats[0].counts["-"]).toBeUndefined();
   });
+
+  it("identity counts gaps as mismatches (gap-aware), unlike score", () => {
+    // 2 A, 1 gap → score = 2/2 = 1 (non-gap), identity = 2/3 (all rows)
+    const stats = computeColumnStats(makeMSA(["A", "-", "A"]));
+    expect(stats[0].score).toBe(1);
+    expect(stats[0].identity).toBeCloseTo(2 / 3);
+  });
+
+  it("identity is 0 for an all-gap column", () => {
+    const stats = computeColumnStats(makeMSA(["-", "-"]));
+    expect(stats[0].identity).toBe(0);
+  });
 });
 
 describe("computeConsensus and computeConservationScores consistency", () => {

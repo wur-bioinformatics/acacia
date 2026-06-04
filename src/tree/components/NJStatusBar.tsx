@@ -3,18 +3,27 @@ import { useNJStore } from "../../NJ/stores/njStore";
 import type { NJParams } from "../../NJ/stores/njStore";
 import { useTreeStore } from "../stores/treeStore";
 
+const MODEL_LABELS: Record<string, string> = {
+  PDiff: "PDiff",
+  JukesCantor: "Jukes-Cantor",
+  Kimura2P: "Kimura 2P",
+  TajimaNei: "Tajima-Nei",
+  Tamura: "Tamura",
+  Poisson: "Poisson",
+  KimuraProtein: "Kimura (protein)",
+};
+
 function njParamLabel(params: NJParams): string {
-  const model =
-    params.substitution_model === "Kimura2P"
-      ? "Kimura 2P"
-      : params.substitution_model === "JukesCantor"
-        ? "Jukes-Cantor"
-        : params.substitution_model;
+  const model = MODEL_LABELS[params.substitution_model] ?? params.substitution_model;
   const bootstrap =
     params.n_bootstrap_samples === 0
       ? "no bootstraps"
       : `${params.n_bootstrap_samples} bootstrap replicates`;
-  return `NJ tree built with nj.rs · ${model} subsitution model · ${bootstrap}`;
+  const corrections: string[] = [];
+  if (params.gamma_shape != null) corrections.push(`Γ shape ${params.gamma_shape}`);
+  if (params.p_invar != null) corrections.push(`p-invar ${params.p_invar}`);
+  const rateHet = corrections.length ? ` · ${corrections.join(" · ")}` : "";
+  return `NJ tree built with nj.rs · ${model} substitution model · ${bootstrap}${rateHet}`;
 }
 
 function treeStatsLabel(): string | null {

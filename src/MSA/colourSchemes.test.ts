@@ -57,6 +57,26 @@ describe("charToColor", () => {
     );
   });
 
+  it("% Conserved: highlights columns whose identity meets the threshold", () => {
+    const columnStats = [
+      { dominantChar: "A", score: 1, identity: 0.95, counts: { A: 19 } },
+      { dominantChar: "A", score: 1, identity: 0.5, counts: { A: 10 } },
+    ];
+    // col 0 (0.95) meets a 0.9 threshold; col 1 (0.5) does not.
+    expect(
+      charToColor("A", 0, "% Conserved", emptyAnalysis, false, null, null, 0, columnStats, 0.9),
+    ).toBe("royalblue");
+    expect(
+      charToColor("A", 1, "% Conserved", emptyAnalysis, false, null, null, 0, columnStats, 0.9),
+    ).toBe("#f4f4f4");
+  });
+
+  it("% Conserved: falls back to gap colour when stats are absent", () => {
+    expect(charToColor("A", 0, "% Conserved", emptyAnalysis, false, null, null, 0, null, 0.9)).toBe(
+      "#f4f4f4",
+    );
+  });
+
   it("unknown char returns gap colour for sequence schemes", () => {
     expect(charToColor("X", 0, "DNA", emptyAnalysis)).toBe("#f4f4f4");
   });

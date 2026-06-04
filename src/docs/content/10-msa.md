@@ -4,9 +4,15 @@ The MSA view renders a multiple sequence alignment on a canvas. It is designed t
 
 ## Toolbar
 
-The toolbar at the top of the MSA view exposes every operation in three menus plus a search field and a sequence-type toggle.
+The toolbar at the top of the MSA view exposes every operation in four menus plus a search field and a sequence-type toggle.
 
 ![MSA toolbar](/docs-assets/msa-toolbar.png)
+
+## File menu
+
+- **Import FASTA…** — loads a new aligned FASTA file, replacing the current alignment. The file must be aligned (all sequences the same length); otherwise the import is rejected with an error. If you have unsaved edits, you are asked to confirm before they are discarded.
+- **Export FASTA → Current alignment** — saves the alignment as you currently see it: with row/column removals and renames applied, in the current display order.
+- **Export FASTA → Original (unedited)** — saves the alignment exactly as it was imported, before any edits.
 
 ## Analyse menu
 
@@ -14,7 +20,8 @@ Builds a phylogenetic tree from the current alignment and computes per-column qu
 
 ### Build NJ tree
 
-- **Substitution model** — PDiff (p-distance, works for any alphabet), Jukes-Cantor and Kimura 2P (DNA only), Poisson (protein only). The options that do not match the detected sequence type are disabled.
+- **Substitution model** — PDiff (p-distance, works for any alphabet); Jukes-Cantor, Kimura 2P, Tajima-Nei and Tamura (DNA only); Poisson and Kimura (protein only). The options that do not match the detected sequence type are disabled.
+- **Rate heterogeneity** — optional corrections that model variation in substitution rate across sites. **Gamma shape α** applies a gamma rate distribution (smaller α = more rate variation); **Invariant sites** sets the proportion of sites assumed never to change. Both have no effect on PDiff and are disabled when it is selected.
 - **Bootstrap replicates** — how many bootstrap iterations to run. Set to 0 to skip bootstrapping.
 - **Run** — kicks off the computation in a Web Worker. The MSA status bar shows progress; the view switches to the Tree tab when finished.
 
@@ -100,11 +107,42 @@ Hover a label to reveal the pencil icon, click it (or double-click the label) to
 
 ### Remove row
 
-Hover a label and click the **×** button, or select a row and press **Delete**/**Backspace**.
+Hover a label and click the **×** button, or select a row and press **Delete**/**Backspace**. Multiple rows can be selected at once — see [Multi-selection](#multi-selection).
 
 ### Remove column
 
-Click a column to select it, then press **Delete**/**Backspace**. **Escape** clears the column selection without deleting.
+Click a column on the quality/conservation track to select it, or use modifier-drag on the alignment to select a span (see below). Press **Delete**/**Backspace** to remove. **Escape** clears the selection without deleting.
+
+### Multi-selection
+
+Hold **Shift** or **Cmd/Ctrl** to draw a selection rectangle on the alignment:
+
+- **Shift-drag** adds rows and columns to the selection.
+- **Cmd/Ctrl-drag** toggles them (XOR).
+- **Shift-click** on the track extends the column selection from the last-clicked anchor.
+- **Cmd/Ctrl-click** on the track toggles a single column.
+
+Plain drag on the alignment still pans the view. The Edit dropdown shows the current count and provides **Clear** and **Delete** buttons.
+
+### Select by metric
+
+The **Edit** dropdown's sliders build the same selection that manual dragging does — they just pick rows or columns by a metric instead of by hand. Every slider adds to the current selection (and dragging it back to 0 removes its own contribution), so you can combine criteria and mix them with a manual selection. The sliders are split into two groups:
+
+**Select columns**
+
+- **By conservation (keep ≥)** — columns whose identity (fraction of all rows matching the dominant residue) is at or above the threshold. Useful for isolating the well-conserved core.
+- **By quality (TRIDENT <)** — columns whose per-column TRIDENT score is below the threshold.
+- **By consistency (mean TCS <)** — columns whose mean TCS (over non-gap residues) is below the threshold.
+- **By gaps (>)** — columns whose gap fraction is above the threshold.
+
+**Select rows**
+
+- **By consistency (mean TCS <)** — rows whose mean TCS (over non-gap positions) is below the threshold.
+- **By gaps (>)** — rows whose gap fraction is above the threshold.
+
+The TRIDENT and TCS sliders are enabled only after running **Analyse → Compute**; editing the alignment marks the scores stale and disables them again until you recompute. Each slider reports how many rows/columns it currently matches. **Clear** drops the selection and resets the sliders; **Delete** commits the selection as remove-row / remove-column edits (each individually undoable with **Cmd+Z**).
+
+A deletion can never empty the alignment: if the selection covers every row or every column, **Delete** is disabled (and **Delete**/**Backspace** is ignored) — at least one row and one column always remain.
 
 ### Reorder rows
 
