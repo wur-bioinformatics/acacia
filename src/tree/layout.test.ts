@@ -43,6 +43,30 @@ describe("parseNewick", () => {
     expect(tree.name).toBe("100");
     expect(tree.children[0].name).toBe("95");
   });
+
+  // nj.rs quotes any label containing Newick-special characters, which is every
+  // FASTA header with spaces or pipes in it.
+  it("strips quotes from quoted labels", () => {
+    const tree = parseNewick(
+      "('sp|P20248|CCNA2_HUMAN  Cyclin-A2 OS=Homo sapiens':0.1,\"B name\":0.2);",
+    );
+    expect(tree.children[0].name).toBe("sp|P20248|CCNA2_HUMAN  Cyclin-A2 OS=Homo sapiens");
+    expect(tree.children[0].length).toBeCloseTo(0.1);
+    expect(tree.children[1].name).toBe("B name");
+    expect(tree.children[1].length).toBeCloseTo(0.2);
+  });
+
+  it("keeps delimiters that appear inside quoted labels", () => {
+    const tree = parseNewick("('a,b(c):d;':0.1,B);");
+    expect(tree.children).toHaveLength(2);
+    expect(tree.children[0].name).toBe("a,b(c):d;");
+    expect(tree.children[1].name).toBe("B");
+  });
+
+  it("unescapes doubled quotes inside a quoted label", () => {
+    const tree = parseNewick("('it''s',B);");
+    expect(tree.children[0].name).toBe("it's");
+  });
 });
 
 // ---------------------------------------------------------------------------

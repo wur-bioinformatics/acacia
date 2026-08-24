@@ -23,9 +23,8 @@ export function parseNewick(s: string): TreeNode {
     }
 
     while (i < s.length && " \t".includes(s[i])) i++;
-    const nameStart = i;
-    while (i < s.length && !":,);".includes(s[i])) i++;
-    node.name = s.slice(nameStart, i).trim();
+    node.name = parseName();
+    while (i < s.length && " \t".includes(s[i])) i++;
 
     if (i < s.length && s[i] === ":") {
       i++;
@@ -35,6 +34,34 @@ export function parseNewick(s: string): TreeNode {
     }
 
     return node;
+  }
+
+  // Labels may be quoted (nj.rs quotes any name containing Newick-special
+  // characters, e.g. the spaces and pipes in a FASTA header). Inside quotes a
+  // doubled quote is a literal one and delimiters carry no structural meaning,
+  // so the quotes must be stripped for the name to match the MSA identifier.
+  function parseName(): string {
+    const quote = s[i];
+    if (quote !== "'" && quote !== '"') {
+      const start = i;
+      while (i < s.length && !":,);".includes(s[i])) i++;
+      return s.slice(start, i).trim();
+    }
+    i++; // consume opening quote
+    let name = "";
+    while (i < s.length) {
+      if (s[i] === quote) {
+        if (s[i + 1] === quote) {
+          name += quote;
+          i += 2;
+          continue;
+        }
+        i++; // consume closing quote
+        break;
+      }
+      name += s[i++];
+    }
+    return name;
   }
 
   return parseNode();

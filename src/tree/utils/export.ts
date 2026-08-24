@@ -7,17 +7,27 @@ import { matchesQuery } from "./search";
 // Newick serialization
 // ---------------------------------------------------------------------------
 
+// Names holding characters that are structural in Newick (whitespace and the
+// (),:; delimiters) must be single-quoted, with inner quotes doubled — otherwise
+// a FASTA-header label would re-import as a broken topology.
+function quoteName(name: string): string {
+  if (name === "") return "";
+  if (!/[\s(),:;'"[\]]/.test(name)) return name;
+  return `'${name.replace(/'/g, "''")}'`;
+}
+
 export function flatTreeToNewick(tree: FlatTree): string {
   const { nodes, rootId } = tree;
 
   function serialize(id: NodeId): string {
     const node = nodes.get(id)!;
     const lenSuffix = `:${node.length}`;
+    const name = quoteName(node.name);
     if (node.childIds.length === 0) {
-      return `${node.name}${lenSuffix}`;
+      return `${name}${lenSuffix}`;
     }
     const children = node.childIds.map(serialize).join(",");
-    return `(${children})${node.name}${lenSuffix}`;
+    return `(${children})${name}${lenSuffix}`;
   }
 
   return `${serialize(rootId)};`;
