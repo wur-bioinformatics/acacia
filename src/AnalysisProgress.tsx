@@ -26,6 +26,8 @@ export function AnalysisProgress() {
   const njCurrent = useNJStore((s) => s.progress?.current);
   const njTotal = useNJStore((s) => s.progress?.total);
   const njCancel = useNJStore((s) => s.cancel);
+  const distanceStatus = useNJStore((s) => s.distanceStatus);
+  const distanceCancel = useNJStore((s) => s.distanceCancel);
   const tcsStatus = useQualityStore((s) => s.tcsStatus);
   const tcsStage = useQualityStore((s) => s.tcsProgress?.stage);
   const tcsCurrent = useQualityStore((s) => s.tcsProgress?.current);
@@ -47,6 +49,9 @@ export function AnalysisProgress() {
             : null,
         cancel: njCancel,
       };
+    }
+    if (distanceStatus === "running") {
+      return { label: "Computing distances", fraction: null, cancel: distanceCancel };
     }
     if (tcsStatus === "running") {
       return {
@@ -70,6 +75,8 @@ export function AnalysisProgress() {
     njCurrent,
     njTotal,
     njCancel,
+    distanceStatus,
+    distanceCancel,
     tcsStatus,
     tcsStage,
     tcsCurrent,

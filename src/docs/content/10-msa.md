@@ -16,14 +16,23 @@ The toolbar at the top of the MSA view exposes every operation in four menus plu
 
 ## Analyse menu
 
-Builds a phylogenetic tree from the current alignment and computes per-column quality scores.
+Computes pairwise distances, builds a phylogenetic tree, and computes per-column quality scores. Distances and tree are two steps of one pipeline: you can run them together, or stop after the distances and continue from the Distances view later.
+
+### Compute distances
+
+Computes the pairwise distance matrix only — no tree, no bootstrapping, so it is quick. The view switches to the Distances tab when it finishes; from there **Analyse → Build NJ tree** continues to a tree.
+
+- **Substitution model** / **Rate heterogeneity** — the same options as below; the two submenus share one set of settings.
+- **Compute distances** — runs the computation in a Web Worker.
 
 ### Build NJ tree
+
+Computes distances and infers the tree in one go, so the Distances tab is populated as well.
 
 - **Substitution model** — PDiff (p-distance, works for any alphabet); Jukes-Cantor, Kimura 2P, Tajima-Nei and Tamura (DNA only); Poisson and Kimura (protein only). The options that do not match the detected sequence type are disabled.
 - **Rate heterogeneity** — optional corrections that model variation in substitution rate across sites. **Gamma shape α** applies a gamma rate distribution (smaller α = more rate variation); **Invariant sites** sets the proportion of sites assumed never to change. Both have no effect on PDiff and are disabled when it is selected.
 - **Bootstrap replicates** — how many bootstrap iterations to run. Set to 0 to skip bootstrapping.
-- **Run** — kicks off the computation in a Web Worker. The MSA status bar shows progress; the view switches to the Tree tab when finished.
+- **Build tree** — kicks off the computation in a Web Worker. The MSA status bar shows progress; the view switches to the Tree tab when finished.
 
 ### MSA quality
 
@@ -40,7 +49,7 @@ Controls what the canvas shows and how it is colored.
 - **Show labels** — sequence names in the left column.
 - **Show letters** — residue letters drawn on top of colored cells (hidden automatically when zoomed out).
 - **Show consensus** — a synthetic consensus row above the alignment.
-- **Show minimap** — the panel at the bottom that shows the whole alignment.
+- **Show minimap** — the panel that shows the whole alignment.
 - **Track** — choose **None**, **Conservation** (per-column score), **Logo** (sequence-logo bar), **TRIDENT**, or **TCS** for the optional track panel below the minimap. TRIDENT and TCS are only selectable after running **Analyse → Compute**.
 - **Color options** — pick a coloring scheme. Group availability depends on the current sequence type:
   - DNA: **DNA** (standard ACGT) and **DNA ClustalX**.
@@ -72,6 +81,19 @@ The **track panel** between the minimap and the main canvas appears when a track
 - **TCS** — per-column **mean** of the per-residue transitive consistency scores.
 
 The boundary between the main canvas, the track, and the minimap is draggable for resizing.
+
+## Scalebar and cursor position
+
+The **scalebar** sits directly above the main canvas and rules off alignment columns with labelled ticks. It shares the canvas pan and zoom, so the ticks stay on their columns, and the tick interval coarsens as you zoom out. A blue marker tracks the column under the cursor. It is always shown.
+
+Positions are 1-based: the tick labelled `50` sits on the 50th column.
+
+Two readouts follow the cursor across the alignment:
+
+- A blue **position badge** at the right of the status bar, showing the row and column under the pointer.
+- A small **tooltip** next to the pointer with the same coordinates, which appears once the cursor is held still.
+
+Both read `consensus` in place of a row number while the pointer is over the consensus row.
 
 ## MSA quality scores
 

@@ -6,6 +6,7 @@ import { HelpCircle } from "lucide-react";
 import { AcaciaBrand } from "./AcaciaLogo";
 import { viewOptions, useViewStore, type View } from "./viewStore";
 import { useNJStore } from "./NJ/stores/njStore";
+import { useTreeStore } from "./tree/stores/treeStore";
 import { useDrawStore } from "./MSA/stores/drawStore";
 import { version } from "../package.json";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,8 +22,6 @@ function ViewDispatcher({ view }: { view: View }): JSX.Element | null {
       return <MSA />;
     case "Tree":
       return <Tree />;
-    case "Tree + MSA":
-      return <div>Tree + MSA View (to be implemented)</div>;
     case "Distances":
       return <DistanceMatrix />;
     default:
@@ -32,8 +31,12 @@ function ViewDispatcher({ view }: { view: View }): JSX.Element | null {
 
 export default function Acacia(): JSX.Element {
   const { view, setView } = useViewStore();
-  const { status: njStatus } = useNJStore();
-  const treeReady = njStatus === "done";
+  // Each step of the pipeline unlocks the next tab: an alignment yields
+  // distances, distances yield a tree. A run in flight keeps its tab reachable,
+  // and an imported Newick counts as a tree.
+  const distancesReady = useNJStore((s) => s.distanceMatrix !== null || s.distanceStatus !== "idle");
+  const njTreeReady = useNJStore((s) => s.newick !== null || s.status !== "idle");
+  const hasImportedTree = useTreeStore((s) => s.flatTree !== null);
   const openDocs = useDocsStore((s) => s.openDocs);
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     return (localStorage.getItem("theme") as "light" | "dark") ?? "light";
@@ -60,6 +63,17 @@ export default function Acacia(): JSX.Element {
     window.addEventListener("hashchange", syncFromHash);
     return () => window.removeEventListener("hashchange", syncFromHash);
   }, [openDocs]);
+
+  function isViewEnabled(viewOption: View): boolean {
+    switch (viewOption) {
+      case "Distances":
+        return distancesReady;
+      case "Tree":
+        return njTreeReady || hasImportedTree;
+      default:
+        return true;
+    }
+  }
 
   function toggleTheme() {
     setTheme((t) => (t === "light" ? "dark" : "light"));
@@ -107,7 +121,7 @@ export default function Acacia(): JSX.Element {
                 <TabsTrigger
                   key={viewOption}
                   value={viewOption}
-                  disabled={viewOption !== "MSA" && !treeReady}
+                  disabled={!isViewEnabled(viewOption)}
                 >
                   {viewOption}
                 </TabsTrigger>

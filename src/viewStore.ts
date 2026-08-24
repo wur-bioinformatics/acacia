@@ -1,6 +1,10 @@
 import { create } from "zustand";
 
-export const viewOptions = ["MSA", "Tree", "Tree + MSA", "Distances"] as const;
+/**
+ * Tab order mirrors the analysis pipeline: an alignment yields pairwise
+ * distances, which in turn yield a tree.
+ */
+export const viewOptions = ["MSA", "Distances", "Tree"] as const;
 export type View = (typeof viewOptions)[number];
 
 interface ViewState {

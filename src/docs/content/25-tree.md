@@ -4,8 +4,9 @@ The Tree view renders the current phylogeny as interactive SVG. Each node and br
 
 The tree shown is either:
 
-1. computed by the **Analyse** menu in MSA view, or
-2. imported from a Newick file via the Tree toolbar's **File → Import tree…**.
+1. built by **Analyse → Build NJ tree** in MSA view (distances and tree in one go),
+2. built by **Analyse → Build NJ tree** in Distances view, from a distance matrix you already computed, or
+3. imported from a Newick file via the Tree toolbar's **File → Import tree…**.
 
 When you import a tree whose leaf names do not all appear in the alignment, a warning bar lists the unmatched names. When you edit the alignment after building a tree, a "stale tree" warning appears — recompute to refresh.
 

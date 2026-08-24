@@ -1,13 +1,24 @@
-import { nj, type NJEvent } from "@holmrenser/nj";
+import { nj, distance_matrix, average_distance, type NJEvent } from "@holmrenser/nj";
 import { NJMessage } from "../types";
 
-self.onmessage = (event: MessageEvent<NJMessage>) => {
-  const {
-    type,
-    data: { njConfig },
-  } = event.data;
+/**
+ * nj.rs sets a stable `Error.name` code (e.g. "IncompatibleModel",
+ * "SequenceLengthMismatch"); forward it so the UI can branch on the code
+ * rather than matching the raw message text.
+ */
+function postError(error: unknown) {
+  postMessage({
+    type: "njError",
+    error: error instanceof Error ? error.message : String(error),
+    code: error instanceof Error ? error.name : undefined,
+  });
+}
 
-  if (type === "runNJ") {
+self.onmessage = (event: MessageEvent<NJMessage>) => {
+  const message = event.data;
+
+  if (message.type === "runNJ") {
+    const { njConfig } = message.data;
     try {
       const onEvent = (njEvent: NJEvent) => {
         if (njEvent.type === "BootstrapProgress") {
@@ -20,14 +31,18 @@ self.onmessage = (event: MessageEvent<NJMessage>) => {
       );
       postMessage({ type: "njResult", newick, distanceMatrix, avgDistance });
     } catch (error) {
-      // nj.rs sets a stable `Error.name` code (e.g. "IncompatibleModel",
-      // "SequenceLengthMismatch"); forward it so the UI can branch on the code
-      // rather than matching the raw message text.
-      postMessage({
-        type: "njError",
-        error: error instanceof Error ? error.message : String(error),
-        code: error instanceof Error ? error.name : undefined,
-      });
+      postError(error);
+    }
+  }
+
+  if (message.type === "runDistances") {
+    const { distConfig } = message.data;
+    try {
+      const distanceMatrix = distance_matrix(distConfig);
+      const avgDistance = average_distance(distConfig);
+      postMessage({ type: "distanceResult", distanceMatrix, avgDistance });
+    } catch (error) {
+      postError(error);
     }
   }
 };

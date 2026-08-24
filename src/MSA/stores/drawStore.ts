@@ -17,6 +17,18 @@ export type DragRect = {
   mode: SelectionMode;
 } | null;
 
+/** The alignment cell the pointer is currently over, plus the viewport coords
+ * that produced it (the floating cursor tooltip is positioned from these). Only
+ * set while the pointer is inside the alignment bounds. */
+export type HoverCell = {
+  /** 0-based row index into the displayed alignment, or null for the consensus row. */
+  row: number | null;
+  /** 0-based column index. */
+  col: number;
+  clientX: number;
+  clientY: number;
+};
+
 export type InteractionMode = "pan" | "select";
 export type SelectionAxis = "rows" | "columns";
 
@@ -32,6 +44,7 @@ type DrawState = {
   sequenceTypeOverride: SequenceType | null;
   dragState: { dragIndex: number; hoverIndex: number } | null;
   hoverRow: number | null;
+  hoverCell: HoverCell | null;
   activeTrack: TrackType | null;
   selection: Selection;
   dragRect: DragRect;
@@ -43,6 +56,7 @@ type DrawState = {
   setSequenceTypeOverride: (type: SequenceType | null) => void;
   setDragState: (state: { dragIndex: number; hoverIndex: number } | null) => void;
   setHoverRow: (row: number | null) => void;
+  setHoverCell: (cell: HoverCell | null) => void;
   setActiveTrack: (track: TrackType | null) => void;
   setSelection: (next: Selection | ((prev: Selection) => Selection)) => void;
   clearSelection: () => void;
@@ -76,6 +90,7 @@ export const useDrawStore = create<DrawState>((set) => ({
   sequenceTypeOverride: null,
   dragState: null,
   hoverRow: null,
+  hoverCell: null,
   activeTrack: null,
   selection: emptySelection,
   dragRect: null,
@@ -91,6 +106,7 @@ export const useDrawStore = create<DrawState>((set) => ({
   setSequenceTypeOverride: (sequenceTypeOverride) => set({ sequenceTypeOverride }),
   setDragState: (dragState) => set({ dragState }),
   setHoverRow: (hoverRow) => set({ hoverRow }),
+  setHoverCell: (hoverCell) => set({ hoverCell }),
   setActiveTrack: (activeTrack) => set({ activeTrack }),
   setSelection: (next) =>
     set((s) => ({
@@ -106,6 +122,7 @@ export const useDrawStore = create<DrawState>((set) => ({
       dragRect: null,
       dragState: null,
       hoverRow: null,
+      hoverCell: null,
       activeTrack: null,
       drawOptions: { ...s.drawOptions, offsetX: 0, offsetY: 0, scale: 1, highlightPattern: "" },
     })),

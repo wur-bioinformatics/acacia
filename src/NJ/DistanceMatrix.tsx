@@ -6,6 +6,8 @@ import { useEditStore } from "../editStore";
 import { resolveDisplayName } from "../editUtils";
 import { useShallow } from "zustand/react/shallow";
 import EditMenu from "../EditMenu";
+import DistanceAnalyseMenu from "./components/DistanceAnalyseMenu";
+import { modelLabel, rateHetLabel } from "./substitutionModels";
 import SequenceLabels from "../SequenceLabels";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -99,7 +101,8 @@ function useLabelDividerResize() {
 }
 
 export default function DistanceMatrix(): JSX.Element {
-  const { distanceMatrix, avgDistance, isStale } = useNJStore();
+  const { distanceMatrix, avgDistance, distanceStatus, distanceError, distanceParams, distanceStale } =
+    useNJStore();
   const allOrder = useSequenceStore((s) => s.order);
   const moveSequence = useSequenceStore((s) => s.moveSequence);
   const { edits } = useEditStore(useShallow((s) => ({ edits: s.edits })));
@@ -110,7 +113,20 @@ export default function DistanceMatrix(): JSX.Element {
   const labelsRef = useRef<HTMLDivElement>(null);
   const matrixRef = useRef<HTMLDivElement>(null);
 
-  if (!distanceMatrix) return <div />;
+  if (distanceStatus === "running") {
+    return <p className="p-4 opacity-60">Computing pairwise distances…</p>;
+  }
+  if (distanceStatus === "error") {
+    return <p className="p-4 text-destructive">Distance error: {distanceError}</p>;
+  }
+  if (!distanceMatrix) {
+    return (
+      <p className="p-4 opacity-60">
+        No distances computed yet — run <span className="font-medium">Analyse → Compute distances</span>{" "}
+        (or <span className="font-medium">Build NJ tree</span>) from the MSA view.
+      </p>
+    );
+  }
 
   const { names, matrix } = distanceMatrix;
 
@@ -161,10 +177,10 @@ export default function DistanceMatrix(): JSX.Element {
 
   return (
     <div className="flex flex-col h-full">
-      {isStale && (
+      {distanceStale && (
         <Alert variant="warning" className="rounded-none py-1 px-3 flex-shrink-0">
           <AlertDescription className="text-xs">
-            Alignment has been edited — re-run analysis to update distances.
+            Alignment has been edited — recompute distances from the MSA view to update them.
           </AlertDescription>
         </Alert>
       )}
@@ -179,6 +195,7 @@ export default function DistanceMatrix(): JSX.Element {
           </DropdownMenuContent>
         </DropdownMenu>
         <EditMenu />
+        <DistanceAnalyseMenu />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm">View</Button>
@@ -305,6 +322,19 @@ export default function DistanceMatrix(): JSX.Element {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Status bar */}
+      <div className="flex items-center gap-4 border-t border-muted mt-2 pt-1 text-xs font-mono opacity-35 px-1">
+        <span>{orderedNames.length} sequences</span>
+        {distanceParams && (
+          <span className="ml-auto">
+            {modelLabel(distanceParams.substitution_model)} substitution model
+            {rateHetLabel(distanceParams.gamma_shape, distanceParams.p_invar)
+              ? ` · ${rateHetLabel(distanceParams.gamma_shape, distanceParams.p_invar)}`
+              : ""}
+          </span>
+        )}
       </div>
     </div>
   );

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { DistanceResult } from "@holmrenser/nj";
-import { NJOptions, NJResultMessage } from "./types";
+import { DistanceOptions, NJMessage, NJOptions, NJResultMessage } from "./types";
 import workerUrl from "./workers/njWorker.ts?worker&url";
 
 type NJRunResult = { newick: string; distanceMatrix: DistanceResult; avgDistance: number };
+type DistanceRunResult = { distanceMatrix: DistanceResult; avgDistance: number };
 
 export class CancelledError extends Error {
   constructor() {
@@ -55,13 +56,21 @@ export default function useNJWorker() {
     for (const reject of rejects) reject(new CancelledError());
   }, []);
 
-  const runNJ = useCallback((njOptions: NJOptions): Promise<NJRunResult> => {
+  /**
+   * Posts `message` to the worker and settles when it answers. `onResult`
+   * translates a matching result message into the resolved value; any other
+   * result type is ignored, so distance and NJ runs can share one worker.
+   */
+  const run = useCallback(<T,>(
+    message: NJMessage,
+    onResult: (msg: NJResultMessage) => T | undefined,
+    onProgress?: (current: number, total: number) => void,
+  ): Promise<T> => {
     return new Promise((resolve, reject) => {
       if (!workerRef.current) {
         reject(new Error("NJ worker not initialized"));
         return;
       }
-      const { onProgress, ...workerOptions } = njOptions;
       const worker = workerRef.current;
 
       const cleanup = () => {
@@ -72,15 +81,20 @@ export default function useNJWorker() {
 
       const handler = (event: MessageEvent<NJResultMessage>) => {
         const msg = event.data;
-        if (msg.type === "njResult") {
-          cleanup();
-          resolve({ newick: msg.newick, distanceMatrix: msg.distanceMatrix, avgDistance: msg.avgDistance });
-        } else if (msg.type === "njError") {
+        if (msg.type === "njError") {
           cleanup();
           const friendly = msg.code ? NJ_ERROR_MESSAGES[msg.code] : undefined;
           reject(new NJError(friendly ?? msg.error, msg.code));
-        } else if (msg.type === "njProgress") {
+          return;
+        }
+        if (msg.type === "njProgress") {
           onProgress?.(msg.current, msg.total);
+          return;
+        }
+        const result = onResult(msg);
+        if (result !== undefined) {
+          cleanup();
+          resolve(result);
         }
       };
 
@@ -91,9 +105,30 @@ export default function useNJWorker() {
       pendingRejectsRef.current.add(reject);
       worker.addEventListener("message", handler);
       worker.addEventListener("error", errorHandler);
-      worker.postMessage({ type: "runNJ", data: workerOptions });
+      worker.postMessage(message);
     });
   }, []);
 
-  return { runNJ, cancel };
+  const runNJ = useCallback((njOptions: NJOptions): Promise<NJRunResult> => {
+    const { onProgress, ...workerOptions } = njOptions;
+    return run<NJRunResult>(
+      { type: "runNJ", data: workerOptions },
+      (msg) =>
+        msg.type === "njResult"
+          ? { newick: msg.newick, distanceMatrix: msg.distanceMatrix, avgDistance: msg.avgDistance }
+          : undefined,
+      onProgress,
+    );
+  }, [run]);
+
+  /** Distances only — no NJ, no bootstrap. */
+  const runDistances = useCallback((distanceOptions: DistanceOptions): Promise<DistanceRunResult> => {
+    return run<DistanceRunResult>({ type: "runDistances", data: distanceOptions }, (msg) =>
+      msg.type === "distanceResult"
+        ? { distanceMatrix: msg.distanceMatrix, avgDistance: msg.avgDistance }
+        : undefined,
+    );
+  }, [run]);
+
+  return { runNJ, runDistances, cancel };
 }

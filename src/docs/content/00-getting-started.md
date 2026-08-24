@@ -16,11 +16,15 @@ Scroll with the trackpad / mouse wheel to zoom in and out. Drag inside the canva
 
 Hover over a row to highlight it; click a column to select it.
 
-## Compute a tree
+## Compute distances and a tree
 
-Open the **Analyse** menu in the MSA toolbar, pick a substitution model (PDiff is a safe default that works for both DNA and protein), set the number of bootstrap replicates, and click **Run**.
+The tabs follow the analysis pipeline: **MSA → Distances → Tree**. You can walk it in one step or two.
 
-Acacia computes the neighbor-joining tree in a Web Worker — the UI stays responsive — and switches to the **Tree** tab when it is finished.
+**In one step:** open the **Analyse** menu in the MSA toolbar, choose **Build NJ tree**, pick a substitution model (PDiff is a safe default that works for both DNA and protein), set the number of bootstrap replicates, and click **Build tree**. Acacia switches to the **Tree** tab when it is finished, and the **Distances** tab holds the matrix the run produced.
+
+**In two steps:** choose **Analyse → Compute distances** instead to get the pairwise distance matrix on its own — no tree, no bootstrapping. Acacia switches to the **Distances** tab. When you want a tree from that matrix, use **Analyse → Build NJ tree** there and pick a bootstrap count.
+
+Everything runs in a Web Worker, so the UI stays responsive.
 
 ## Explore the tree
 

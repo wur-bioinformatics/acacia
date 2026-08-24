@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useDrawStore } from "../stores/drawStore";
-import { CELL_SIZE, MINIMAP_EDGE_ZONE } from "../constants";
+import { CELL_SIZE, CURSOR_RGB, MINIMAP_EDGE_ZONE } from "../constants";
 
 type Params = {
   isMinimap: boolean;
@@ -19,7 +19,7 @@ export default function useOverlay({
   nCols,
   orderedIdentifiers,
 }: Params) {
-  const { drawOptions, setDrawOptions, setHoverRow } = useDrawStore();
+  const { drawOptions, setDrawOptions, setHoverRow, setHoverCell } = useDrawStore();
   const { offsetX, offsetY, scale } = drawOptions;
 
   // Keep a ref so minimap drag handlers always see latest values
@@ -27,6 +27,10 @@ export default function useOverlay({
   drawOptionsRef.current = drawOptions;
   const setHoverRowRef = useRef(setHoverRow);
   setHoverRowRef.current = setHoverRow;
+  const setHoverCellRef = useRef(setHoverCell);
+  setHoverCellRef.current = setHoverCell;
+  const nRowsRef = useRef(orderedIdentifiers?.length ?? 0);
+  nRowsRef.current = orderedIdentifiers?.length ?? 0;
 
   // Map from identifier → display row index (post-consensus offset). The +1 for
   // consensus is folded in here so painters can use the result directly.
@@ -86,8 +90,8 @@ export default function useOverlay({
       const w = Math.abs(dragRect.curX - dragRect.startX);
       const h = Math.abs(dragRect.curY - dragRect.startY);
       ctx.save();
-      ctx.fillStyle = "rgba(48,92,222,0.15)";
-      ctx.strokeStyle = "rgba(48,92,222,0.7)";
+      ctx.fillStyle = `rgba(${CURSOR_RGB},0.15)`;
+      ctx.strokeStyle = `rgba(${CURSOR_RGB},0.7)`;
       ctx.lineWidth = 1;
       ctx.fillRect(x, y, w, h);
       ctx.strokeRect(x, y, w, h);
@@ -98,9 +102,9 @@ export default function useOverlay({
       if (!ctx) return;
       const { offsetX, offsetY, scale } = drawOptionsRef.current;
       ctx.save();
-      ctx.strokeStyle = "rgba(48,92,222,0.6)";
+      ctx.strokeStyle = `rgba(${CURSOR_RGB},0.6)`;
       ctx.lineWidth = 1;
-      ctx.fillStyle = "rgba(48,92,222,0.3)";
+      ctx.fillStyle = `rgba(${CURSOR_RGB},0.3)`;
       if (hover.row !== null) {
         ctx.strokeRect(0, hover.row * CELL_SIZE + offsetY, width, CELL_SIZE);
         ctx.fillRect(0, hover.row * CELL_SIZE + offsetY, width, CELL_SIZE);
@@ -128,6 +132,23 @@ export default function useOverlay({
       const visualRow = Math.floor((y - offsetY) / CELL_SIZE);
       const dataRow = showConsensus ? visualRow - 1 : visualRow;
       setHoverRowRef.current(dataRow >= 0 ? dataRow : null);
+      // The badge and tooltip only make sense over real cells, so they get a
+      // cleared hoverCell outside the alignment even while the cross-hair stays.
+      const inBounds =
+        col >= 0 &&
+        col < nCols &&
+        visualRow >= 0 &&
+        dataRow < nRowsRef.current;
+      setHoverCellRef.current(
+        inBounds
+          ? {
+              row: dataRow >= 0 ? dataRow : null,
+              col,
+              clientX: e.clientX,
+              clientY: e.clientY,
+            }
+          : null,
+      );
       hover.col = col;
       hover.row = visualRow;
       redraw();
@@ -135,6 +156,7 @@ export default function useOverlay({
 
     const handleMouseLeave = () => {
       setHoverRowRef.current(null);
+      setHoverCellRef.current(null);
       hover.col = null;
       hover.row = null;
       redraw();
@@ -151,8 +173,12 @@ export default function useOverlay({
       unsubscribe();
       overlayCanvas.removeEventListener("mousemove", handleMouseMove);
       overlayCanvas.removeEventListener("mouseleave", handleMouseLeave);
+      // Pan/zoom re-runs this effect and drops the local cross-hair, so the
+      // readouts fed by hoverCell must go too — the pointer has not moved, but
+      // the cell underneath it has.
+      setHoverCellRef.current(null);
     };
-  }, [scale, offsetX, offsetY, isMinimap, overlayRef, height, width]);
+  }, [scale, offsetX, offsetY, isMinimap, overlayRef, height, width, nCols]);
 
   // Minimap: viewport box drawing (runs every render when isMinimap)
   useEffect(() => {

@@ -7,7 +7,12 @@ import { useSequenceStore } from "../sequenceStore";
 import "./styles.css";
 
 import { importFastaFile } from "./utils/importMSA";
-import { CELL_SIZE, MINIMAP_HEIGHT, TRACK_LABELS } from "./constants";
+import {
+  CELL_SIZE,
+  MINIMAP_HEIGHT,
+  SCALEBAR_HEIGHT,
+  TRACK_LABELS,
+} from "./constants";
 import { computeColumnStats } from "./utils/msaAnalysis";
 
 import type { MSAData } from "./types";
@@ -31,6 +36,9 @@ import { exampleMsa, exampleFoxp2Msa } from "./example_data";
 import MSAToolbar from "./components/MSAToolbar";
 import MSALabels from "./components/MSALabels";
 import TrackCanvas from "./components/TrackCanvas";
+import Scalebar from "./components/Scalebar";
+import CursorTooltip from "./components/CursorTooltip";
+import CursorPositionBadge from "./components/CursorPositionBadge";
 import { useQualityStore } from "./stores/qualityStore";
 import { CanvasProvider } from "./context/CanvasContext";
 import { Button } from "@/components/ui/button";
@@ -254,7 +262,7 @@ function MSAInner(): JSX.Element {
     useShallow((s) => ({ originalMSA: s.originalMSA, edits: s.edits })),
   );
   const { order } = useSequenceStore();
-  const { status: njStatus, progress } = useNJStore();
+  const { status: njStatus, progress, distanceStatus } = useNJStore();
   const {
     tridentStatus,
     tcsStatus,
@@ -574,6 +582,36 @@ function MSAInner(): JSX.Element {
             </div>
           )}
 
+          {/* Scalebar: column ruler, aligned with the main canvas below it */}
+          <div className="flex">
+            <div
+              style={{
+                width: effectiveLabelWidth + effectiveDividerWidth,
+                height: SCALEBAR_HEIGHT,
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "flex-end",
+                justifyContent: "flex-end",
+                paddingRight: effectiveDividerWidth + 8,
+              }}
+            >
+              {showLabels && (
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontFamily: '"Azeret Mono", ui-monospace, monospace',
+                    opacity: 0.3,
+                    letterSpacing: "0.02em",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  Position
+                </span>
+              )}
+            </div>
+            <Scalebar width={canvasWidth} nCols={nCols} />
+          </div>
+
           {/* Main canvas with labels */}
           <div className="flex">
             {showLabels && (
@@ -621,46 +659,54 @@ function MSAInner(): JSX.Element {
             {analysis && colorStyle === "Variable" && (
               <span>{analysis.variableSites.length} variable</span>
             )}
-            {njStatus === "running" && progress && (
-              <span className="ml-auto">
-                building tree · bootstrap {progress.current} / {progress.total}
-              </span>
-            )}
-            {njStatus === "error" && (
-              <span className="ml-auto font-sans text-destructive opacity-100">
-                tree build failed
-              </span>
-            )}
-            {tcsStatus === "running" && (
-              <span className="ml-auto">
-                computing TCS
-                {tcsProgress
-                  ? ` · ${tcsProgress.stage} ${tcsProgress.current} / ${tcsProgress.total}`
-                  : "…"}
-              </span>
-            )}
-            {tcsStatus !== "running" && tridentStatus === "running" && (
-              <span className="ml-auto">computing TRIDENT…</span>
-            )}
-            {(tridentStale || tcsStale) && (
-              <span className="ml-auto font-sans opacity-100">
-                {[tridentStale && "TRIDENT", tcsStale && "TCS"]
-                  .filter(Boolean)
-                  .join(" + ")}{" "}
-                stale — recompute
-              </span>
-            )}
-            {(tridentStatus === "error" || tcsStatus === "error") && (
-              <span className="ml-auto font-sans text-destructive opacity-100">
-                quality failed
-                {(tridentError ?? tcsError)
-                  ? ` · ${tridentError ?? tcsError}`
-                  : ""}
-              </span>
-            )}
+            <div className="ml-auto flex items-center gap-4">
+              {njStatus === "running" && progress && (
+                <span>
+                  building tree · bootstrap {progress.current} /{" "}
+                  {progress.total}
+                </span>
+              )}
+              {distanceStatus === "running" && (
+                <span>computing distances…</span>
+              )}
+              {njStatus === "error" && (
+                <span className="font-sans text-destructive opacity-100">
+                  tree build failed
+                </span>
+              )}
+              {tcsStatus === "running" && (
+                <span>
+                  computing TCS
+                  {tcsProgress
+                    ? ` · ${tcsProgress.stage} ${tcsProgress.current} / ${tcsProgress.total}`
+                    : "…"}
+                </span>
+              )}
+              {tcsStatus !== "running" && tridentStatus === "running" && (
+                <span>computing TRIDENT…</span>
+              )}
+              {(tridentStale || tcsStale) && (
+                <span className="font-sans opacity-100">
+                  {[tridentStale && "TRIDENT", tcsStale && "TCS"]
+                    .filter(Boolean)
+                    .join(" + ")}{" "}
+                  stale — recompute
+                </span>
+              )}
+              {(tridentStatus === "error" || tcsStatus === "error") && (
+                <span className="font-sans text-destructive opacity-100">
+                  quality failed
+                  {(tridentError ?? tcsError)
+                    ? ` · ${tridentError ?? tcsError}`
+                    : ""}
+                </span>
+              )}
+              <CursorPositionBadge />
+            </div>
           </div>
         </div>
       )}
+      <CursorTooltip />
     </div>
   );
 }

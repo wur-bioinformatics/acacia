@@ -21,12 +21,12 @@ A React/TypeScript web app for visualizing Multiple Sequence Alignments (MSA) an
 
 Zustand stores only — no Context API for state, no Redux.
 
-- `viewStore.ts` — which view is active (MSA / Tree / Combined)
+- `viewStore.ts` — which view is active. The tabs follow the analysis pipeline: MSA → Distances → Tree
 - `sequenceStore.ts` — **cross-module**: the single source of truth for sequence display order and shared selection. Both the MSA renderer and the tree use this. Tree drag/reorder writes here; MSA reads here.
 - `editStore.ts` — **cross-module**: undo/redo stack for MSA edits (rename, remove row, remove column). Edits are stored as a log against the original `MSAData`; `applyEdits()` in `editUtils.ts` replays them. Cmd+Z / Cmd+Shift+Z is wired via `useEditKeyboard` in MSA and inline in `tree/index.tsx`.
 - `MSA/stores/msaStore.ts` — parsed sequence data
 - `MSA/stores/drawStore.ts` — pan/zoom/color draw options
-- `NJ/stores/njStore.ts` — NJ algorithm computation state
+- `NJ/stores/njStore.ts` — distance-matrix and NJ-tree computation state. The two steps have separate status/error/params/stale fields: distances can be computed on their own, while a tree build publishes both
 - `tree/stores/treeStore.ts` — tree display state (layout mode, pan/zoom, reroot, collapse, node styles, drag mode)
 
 Context API is used **only for mutable DOM refs** that need to be shared across sibling hooks (see `src/MSA/context/CanvasContext.tsx` for canvas element refs). Never for state.
@@ -47,7 +47,7 @@ CPU-heavy work runs off the main thread.
 
 - `MSA/workers/canvasWorker.ts` — MSA canvas rendering (OffscreenCanvas)
 - `MSA/workers/qualityWorker.ts` — TRIDENT + TCS column-quality scores
-- `NJ/workers/njWorker.ts` — Neighbor-Joining algorithm via `@holmrenser/nj` (Rust/WASM, [`nj.rs`](https://github.com/holmrenser/nj))
+- `NJ/workers/njWorker.ts` — pairwise distances (`runDistances`) and the Neighbor-Joining algorithm (`runNJ`) via `@holmrenser/nj` (Rust/WASM, [`nj.rs`](https://github.com/holmrenser/nj)). `NJ/useAnalysis.ts` wraps both: it runs a step against the edited alignment, writes the result to `njStore`, and switches to the view that shows it
 
 Worker message protocols are defined as discriminated union types in the module's `types.ts`. The worker lifecycle is managed by a dedicated hook (`useMainCanvasWorker`, `useQualityWorker`, `useNJWorker`).
 
